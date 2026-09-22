@@ -68,7 +68,7 @@ export function strike(ci: ContentIndex, s: GameState, fx: EffectTable, rng: Rng
   // band drop
   let drop: StrikeResult['drop'] = null
   const band = bandAt(ci, s)
-  if (band.drops.length && (crit || rng.chance(t.dropChance))) {
+  if (band.drops.length && t.dropChance > 0 && rng.chance(t.dropChance)) {
     const total = band.drops.reduce((a, d) => a + d.weight, 0)
     let r = rng.next() * total
     let pick = band.drops[0]!

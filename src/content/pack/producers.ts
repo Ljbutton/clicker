@@ -1,8 +1,8 @@
 /** §6 Producers — 7 Folk lodges (raws) and 12 workshop crews (recipes). */
 import type { ProducerDef } from '../types'
 
-const LODGE_GROWTH = 1.13
-const CREW_GROWTH = 1.15
+const LODGE_GROWTH = 1.15
+const CREW_GROWTH = 1.18
 
 export const lodges: ProducerDef[] = [
   { id: 'sapper', name: 'Sapper Lodge', glyph: '💧', kind: 'lodge', produces: { id: 'sap', rate: 0.5 }, baseCost: { sap: 15 }, costGrowth: LODGE_GROWTH,

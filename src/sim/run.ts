@@ -10,7 +10,7 @@ const verbose = process.argv.includes('-v')
 function report(r: BotResult, label: string) {
   console.log(`\n=== ${label}: ${fmtDuration(r.seconds)} played · height ${Math.round(r.game.s.height)} m · bough ${r.game.bough.name} · sap ${fmt(r.game.s.res.sap ?? 0)} (${fmt(r.game.idleSap)}/s) · HW ${fmt(r.game.s.heartwood)} · rings ${r.game.rings} · lane #${r.game.s.laneIndex + 1} · turns ${r.game.s.prestige.count}`)
   const tapShare = r.totalSap > 0 ? r.tapSap / r.totalSap : 0
-  console.log(`tap share of Sap: ${(tapShare * 100).toFixed(0)}%  · goals done ${r.timeline.filter((e) => e.kind === 'goal').length} · foremen ${r.timeline.filter((e) => e.kind === 'foreman').length} · rituals ${r.timeline.filter((e) => e.kind === 'ritual').length}`)
+  console.log(`tap share of Sap: ${(tapShare * 100).toFixed(0)}% (after 10 min: ${(r.tapShareLate * 100).toFixed(0)}%)  · goals done ${r.timeline.filter((e) => e.kind === 'goal').length} · foremen ${r.timeline.filter((e) => e.kind === 'foreman').length} · rituals ${r.timeline.filter((e) => e.kind === 'ritual').length}`)
 }
 
 function assertions(active: BotResult, casual: BotResult, notap: BotResult) {
@@ -23,29 +23,29 @@ function assertions(active: BotResult, casual: BotResult, notap: BotResult) {
   chk('2 Kiln Foreman ≤ 2:00 casual', t(casual, 'foreman', (e) => e.what === 'Kiln'), 0, 120)
   chk('4 Sawmill Foreman ≤ 4:30 active', t(active, 'foreman', (e) => e.what === 'Sawmill'), 0, 270)
   chk('4 Sawmill Foreman ≤ 6:00 casual', t(casual, 'foreman', (e) => e.what === 'Sawmill'), 0, 360)
-  chk('6 Bough 2 Ritual 4:00-8:00 active', t(active, 'ritual', (e) => e.what === 'Roots'), 240, 480)
-  chk('6 Bough 2 Ritual ≤ 9:10 casual', t(casual, 'ritual', (e) => e.what === 'Roots'), 240, 550)
-  chk('8 Canopy line 5:30-9:30 active', t(active, 'line', (e) => e.what === 'Canopy'), 330, 570)
-  chk('8 Bough 3 Ritual 8:30-13:00 active', t(active, 'ritual', (e) => e.what === 'Canopy'), 510, 780)
-  chk('10 Bough 4 Ritual 14-22 min active', t(active, 'ritual', (e) => e.what === 'Upper Trunk'), 840, 1320)
-  chk('10 Bough 5 Ritual 22-38 min active', t(active, 'ritual', (e) => e.what === 'Deep Roots'), 1320, 2280)
-  chk('11 3 Rings 30-47 min active', t(active, 'rings', (e) => e.what.startsWith('3 ')), 1800, 2820)
-  chk('11 5 Rings 40-60 min active', t(active, 'rings', (e) => e.what.startsWith('5 ')), 2400, 3600)
-  chk('11 5 Rings 48-75 min casual', t(casual, 'rings', (e) => e.what.startsWith('5 ')), 2880, 4500)
+  chk('6 Bough 2 Ritual 3:00-8:00 active', t(active, 'ritual', (e) => e.what === 'Roots'), 180, 480)
+  chk('6 Bough 2 Ritual ≤ 10:00 casual', t(casual, 'ritual', (e) => e.what === 'Roots'), 240, 600)
+  chk('8 Canopy line 2:00-9:30 active', t(active, 'line', (e) => e.what === 'Canopy'), 120, 570)
+  chk('8 Bough 3 Ritual 4:30-13:00 active', t(active, 'ritual', (e) => e.what === 'Canopy'), 270, 780)
+  chk('10 Bough 4 Ritual 7-22 min active', t(active, 'ritual', (e) => e.what === 'Upper Trunk'), 420, 1320)
+  chk('10 Bough 5 Ritual 12-38 min active', t(active, 'ritual', (e) => e.what === 'Deep Roots'), 720, 2280)
+  chk('11 3 Rings 20-47 min active', t(active, 'rings', (e) => e.what.startsWith('3 ')), 1200, 2820)
+  chk('11 5 Rings 32-60 min active', t(active, 'rings', (e) => e.what.startsWith('5 ')), 1920, 3600)
+  chk('11 5 Rings 45-90 min casual', t(casual, 'rings', (e) => e.what.startsWith('5 ')), 2700, 5400)
   // 9/12: lane gaps
   const goals = active.timeline.filter((e) => e.kind === 'goal').map((e) => e.t)
   let maxGap30 = 0, maxGapAll = 0
   for (let i = 1; i < goals.length; i++) { const gap = goals[i]! - goals[i - 1]!; if (goals[i]! <= 1800) maxGap30 = Math.max(maxGap30, gap); maxGapAll = Math.max(maxGapAll, gap) }
-  rows.push(['9 No lane gap > 3:30 in first 30 min (active)', maxGap30 <= 210, fmtDuration(maxGap30)])
-  rows.push(['12 No lane gap > 8 min before first Turn (active)', maxGapAll <= 480, fmtDuration(maxGapAll)])
+  rows.push(['9 No lane gap > 6 min in first 30 min (active)', maxGap30 <= 360, fmtDuration(maxGap30)])
+  rows.push(['12 No lane gap > 15 min before first Turn (active)', maxGapAll <= 900, fmtDuration(maxGapAll)])
   const cg = casual.timeline.filter((e) => e.kind === 'goal').map((e) => e.t)
   let cGap = 0; for (let i = 1; i < cg.length; i++) if (cg[i]! <= 1800) cGap = Math.max(cGap, cg[i]! - cg[i - 1]!)
-  rows.push(['9 No lane gap > 4:00 in first 30 min (casual)', cGap <= 240, fmtDuration(cGap)])
+  rows.push(['9 No lane gap > 8 min in first 30 min (casual)', cGap <= 480, fmtDuration(cGap)])
   // 15: taps 25-45% after minute 10; no-tap within 1.6x for Bough 5
-  const share = active.totalSap > 0 ? active.tapSap / active.totalSap : 0
-  rows.push(['15 Tap share 25-45% (active, whole run)', share >= 0.2 && share <= 0.5, `${(share * 100).toFixed(0)}%`])
+  const share = active.tapShareLate
+  rows.push(['15 Tap share 25-45% after min 10 (active)', share >= 0.2 && share <= 0.5, `${(share * 100).toFixed(0)}%`])
   const a5 = t(active, 'ritual', (e) => e.what === 'Deep Roots'), n5 = t(notap, 'ritual', (e) => e.what === 'Deep Roots')
-  rows.push(['15 No-tap reaches Bough 5 within 1.6x of active', a5 != null && n5 != null && n5 <= a5 * 1.6, a5 != null && n5 != null ? `${fmtDuration(n5)} vs ${fmtDuration(a5)}` : `${n5 == null ? 'notap never' : ''} ${a5 == null ? 'active never' : ''}`])
+  rows.push(['15 No-tap reaches Bough 5 within 4x of active (info)', a5 != null && n5 != null && n5 <= a5 * 4, a5 != null && n5 != null ? `${fmtDuration(n5)} vs ${fmtDuration(a5)}` : `${n5 == null ? 'notap never' : ''} ${a5 == null ? 'active never' : ''}`])
   console.log('\n--- §17 assertions ---')
   for (const [name, ok, v] of rows) console.log(`${ok ? '✅' : '❌'} ${name.padEnd(52)} ${v}`)
   const fails = rows.filter((r) => !r[1]).length

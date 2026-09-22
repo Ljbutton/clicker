@@ -276,11 +276,16 @@ export class Game {
     const all = candidates(this.ci, this.s, this.fx, this.net, this.heartwoodRate)
     this.compassBest = best(all)
     const cg = currentGoal(this.ci, this.s)
-    const pinned = cg ? laneGoal(this.ci, this.s, this.fx, this.net, cg, this.heartwoodRate) : this.compassBest
+    const laneHead = cg ? laneGoal(this.ci, this.s, this.fx, this.net, cg, this.heartwoodRate) : null
+    // The lane head is pinned while it is reachable soon; when it is far away (or waiting on time), the Compass's
+    // nearest goal takes the bar and the lane head moves to the runway, so the bar always shows something close.
+    let pinned = laneHead ?? this.compassBest
+    const far = laneHead && !laneHead.ready && (laneHead.eta > BALANCE.compass.maxEta || (!Number.isFinite(laneHead.eta) && laneHead.kind !== 'tap' && laneHead.kind !== 'crucible'))
+    if (far && this.compassBest && (this.compassBest.ready || this.compassBest.eta < BALANCE.compass.maxEta)) pinned = this.compassBest
     if (pinned) pinned.advice = advise(this.ci, this.s, this.fx, this.net, pinned)
     this.pinned = pinned
     const others = all.filter((g) => g !== this.compassBest && !(g.ready && !g.fresh) && Number.isFinite(g.eta)).sort((a, b) => a.eta - b.eta)
-    this.then = [this.compassBest, ...others].filter((g): g is Goal => !!g && g !== pinned && g.id !== pinned?.id).slice(0, 2)
+    this.then = [laneHead, this.compassBest, ...others].filter((g): g is Goal => !!g && g !== pinned && g.id !== pinned?.id).slice(0, 2)
   }
 
   /* ---------- tap layer ---------- */
@@ -349,6 +354,7 @@ export class Game {
 
   /* ---------- purchases ---------- */
   buyProducer(id: string, n: number | 'max' = 1): number {
+    if (!this.ci.producers.has(id)) return 0
     const count = n === 'max' ? Math.max(1, producerMaxAffordable(this.ci, this.s, id, this.fx)) : n
     const before = producerCount(this.s, id)
     const added = buyProducer(this.ci, this.s, id, this.fx, count)

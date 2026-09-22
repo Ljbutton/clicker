@@ -5,7 +5,8 @@ export const BALANCE = {
     base: 1,
     /** Strike = base * max(1, peg * idleSapPerSec). */
     peg: 0.25,
-    dropChance: 0.2,
+    /** Strikes do not shake loose raws (raws come from Folk); kept as a knob. */
+    dropChance: 0,
     critChance: 0.05,
     critMult: 10,
     critEvery: 25,
@@ -39,7 +40,7 @@ export const BALANCE = {
   limbs: { baseCost: 10, growth: 2.5, good: 'beam', rediscoverDiscount: 0.5 },
   ritual: { seasonDiscount: 0.9, seasonFloor: 0.3, absoluteFloor: 0.25, holdMs: 3000 },
   offline: { rate: 0.5, capHours: 8, maxCapHours: 24, step: 60, maxSteps: 1440, returnChestHours: 2, amberChestHours: 12, minSeconds: 30 },
-  prestige: { K: 3e6, mult: 2, exponent: 1.5, minRings: 3, recommendRings: 5, ringPassive: 0.05, holdMs: 1500 },
+  prestige: { K: 2e7, mult: 2, exponent: 1.5, minRings: 3, recommendRings: 5, ringPassive: 0.05, holdMs: 1500 },
   lanterns: { litEvery: 100, litBonus: 0.05, maxLit: 12 },
   night: { cycleSeconds: 720, daySeconds: 480, maxFireflies: 15 },
   compass: { maxEta: 600, excludeAbove: 3600, runeTierWindow: 3, ema: 10 },

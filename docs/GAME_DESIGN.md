@@ -4,6 +4,16 @@
 >
 > **Lineage:** built from the highest-scoring pitch, *Hollowspire* (147 judge points), with the judges' flagged grafts from *Skystalk* (GROW hero verb and curve, 4x-per-tier worth rule, crafted-goods-priced permanent multipliers, idle-pegged taps + stamina Rally, "idle source one bough later" rule, Compass resolver with sub-step advice, mechanic ladder shown in advance, milestone x2 tokens, Morning Dew, bot-player sim), *Hearthspire* (Crucible discovery + persistent Codex, Road Ahead sheet, visible supply chain with starving-input markers, Masterwork tap crafts, try-on shop preview, "Folk will finish this while you're away") and *Skyroot* (crafted goods as building upgrades, crafted offline-cap lever with a jar readout, Grow-to-goal on return, Ring Tree drawn as roots below the stump, stump nameplate, worth-vs-cost on recipe cards, ghosted next bough). Every judge concern is resolved explicitly in §0.3.
 
+> **v1.1 tuning notes (engine sim, `npm run sim`).** The first draft's numbers were tuned in a simplified Python model that omitted chests, tokens, crits, Resonance and tap drops. Playing the real engine with them compounded into a ~10x faster first hour, so these knobs were retuned in the data files (the systems are unchanged):
+> - Strikes never shake loose raws (raws come only from Folk); strikes are pegged to the *steady* idle rate and take only tap-specific multipliers; Resonance, Rally and x2 tokens boost Folk and crews, never strikes.
+> - x2 tokens stack in duration, never in value, and come from Amber/Star/Season chests only (not from every milestone).
+> - Chests pay 60 s / 4 min / 15 min of steady income (Bark / Amber / Star); the bough milestone no longer duplicates the lane's Amber chest.
+> - Rune of Thrum: x1.25 per tier, 8 tiers. Lodge cost growth 1.15 (was 1.13), crew 1.18 (was 1.15).
+> - Rituals: Canopy 300 Plank + 80 Beam; Upper Trunk 600 Beam + 300 Brick + 120 Glass; Deep Roots 2,000 Beam + 600 Glass + 300 Lacquer.
+> - Rings: K = 2e7 (was 3e6).
+> - Waystone: goal #43 accepts any set-piece; optional goals are skipped once a Turn is recommended; when the lane head is more than 10 minutes away the bar pins the Compass's nearest goal and moves the lane head to the runway.
+> - Measured (active bot): Kiln Foreman 0:34, Sawmill Foreman 2:48, Roots 3:42, Canopy 5:12, Upper Trunk 8:12, Deep Roots 13:26, 3 Rings ~25 min, 5 Rings ~45 min, Crown ~70 min; strikes ≈ 37% of income after minute 10; casual Turn ~70 min. The early boughs land sooner than §10's targets on purpose: the first ten minutes stay dense with visible world changes.
+
 ---
 
 ## 0. Executive summary

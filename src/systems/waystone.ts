@@ -73,7 +73,11 @@ export function tickWaystone(ci: ContentIndex, s: GameState, now: number, baseRa
   let guard = 0
   while (s.laneIndex < l.length && guard++ < 100) {
     const g = l[s.laneIndex]!
-    if (!checkCondition(ci, s, g.cond, rn)) break
+    if (!checkCondition(ci, s, g.cond, rn)) {
+      // optional goals never hold the lane once a Turn is recommended
+      if (g.optional && rn >= BALANCE.prestige.recommendRings) { s.laneIndex++; continue }
+      break
+    }
     const wasActive = s.flags[`lane_active:${g.id}`]
     const silent = !wasActive && s.laneIndex > 0 && !g.tutorial && s.prestige.count > 0
     const got = silent ? null : applyReward(ci, s, g.reward, now, baseRate)

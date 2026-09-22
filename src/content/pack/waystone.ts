@@ -45,7 +45,7 @@ const rows: G[] = [
   /* 40 */ { name: 'Ritual: Bough 4 Upper Trunk', cond: { kind: 'bough', id: 'upper' }, reward: { chest: 'amber', glimmer: 20, fireflies: 50, landmark: 'lm_chimes' }, tab: 'grow', target: 'ritual:upper' },
   /* 41 */ { name: 'GROW to 250 m and build the Lanternry (20 Beam + 10 Glass)', cond: { kind: 'workshop', id: 'lanternry' }, reward: { fireflies: 5 }, tab: 'craft', target: 'lanternry' },
   /* 42 */ { name: 'Hire the Lanternry Foreman (10 Lantern)', cond: { kind: 'producer', id: 'lanternry_crew', min: 1 }, reward: { fireflies: 15 }, tab: 'craft', target: 'lanternry' },
-  /* 43 */ { name: 'Catch a Golden Acorn', cond: { kind: 'setpiece', id: 'acorn', min: 1 }, reward: { fireflies: 20 }, tab: 'grow', target: 'trunk' },
+  /* 43 */ { name: 'Catch a set-piece (beehive, woodpecker or acorn)', cond: { kind: 'setpieces', min: 1 }, reward: { fireflies: 20 }, tab: 'grow', target: 'trunk' },
   /* 44 */ { name: 'Discover Amber in the Crucible', cond: { kind: 'discovered', recipe: 'amber' }, reward: { fireflies: 60 }, tab: 'craft', target: 'crucible:amber' },
   /* 45 */ { name: 'Build the Amber Vault (300 m) and hire its Foreman (10 Amber)', cond: { kind: 'producer', id: 'ambervault_crew', min: 1 }, reward: { fireflies: 15, chest: 'bark' }, tab: 'craft', target: 'ambervault' },
   /* 46 */ { name: 'Carve Rune of Sap III', cond: { kind: 'rune', id: 'rune_sap', min: 3 }, reward: { fireflies: 10 }, tab: 'grow', target: 'rune_sap' },

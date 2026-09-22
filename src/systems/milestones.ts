@@ -77,7 +77,6 @@ export function tickMilestones(ci: ContentIndex, s: GameState, now: number, base
     if (!checkCondition(ci, s, m.cond, ringsNow)) continue
     s.milestones.push(m.id)
     const got = applyReward(ci, s, m.reward, now, baseRate)
-    if (m.celebration === 'big' && !m.reward.token) { addToken(s, 2, 600, now); got.token = { value: 2, seconds: 600 } }
     out.push({ def: m, got })
   }
   // cap pending chests: the 6th auto-opens (handled by caller since it needs rng)

@@ -30,7 +30,7 @@ export interface BotOptions {
 }
 
 export interface TimelineEntry { t: number; kind: string; what: string; detail?: string }
-export interface BotResult { timeline: TimelineEntry[]; game: Game; tapSap: number; totalSap: number; seconds: number }
+export interface BotResult { timeline: TimelineEntry[]; game: Game; tapSap: number; totalSap: number; seconds: number; tapShareLate: number }
 
 const PROFILES = {
   active: { rate: 3, duty: [[180, 1], [600, 0.6], [1800, 0.35], [Infinity, 0.2]] as [number, number][], buyFrac: 0.2, runeFrac: 0.5, tapUntil: Infinity },
@@ -45,8 +45,8 @@ export function runBot(content: Content, opts: BotOptions): BotResult {
   const game = new Game(content, { storage: memoryStorage(), seed: opts.seed ?? 42, clock: () => wall })
   const timeline: TimelineEntry[] = []
   const log = (kind: string, what: string, detail?: string) => { timeline.push({ t: game.now, kind, what, detail }); if (opts.verbose) console.log(`${fmtDuration(game.now).padStart(9)}  ${kind.padEnd(9)} ${what}${detail ? '  (' + detail + ')' : ''}`) }
-  let tapSap = 0
-  game.events.on('strike', (e) => { tapSap += e.value })
+  let tapSap = 0, tapSapLate = 0, sapAt10 = 0
+  game.events.on('strike', (e) => { tapSap += e.value; if (game.now >= 600) tapSapLate += e.value })
   game.events.on('goal', (e) => log('goal', `#${e.index + 1} ${e.goal.name}`, `sap ${fmt(game.s.res.sap ?? 0)} · ${fmt(game.idleSap)}/s`))
   game.events.on('producer', (e) => { if (e.foreman) log('foreman', game.ci.workshops.get(game.ci.producers.get(e.id)?.station ?? '')?.name ?? e.id); else if (e.count === e.added) log('lodge', game.ci.producers.get(e.id)?.name ?? e.id) })
   game.events.on('workshop', (e) => log('workshop', game.ci.workshops.get(e.id)?.name ?? e.id, `h=${Math.round(game.s.height)}m`))
@@ -71,6 +71,7 @@ export function runBot(content: Content, opts: BotOptions): BotResult {
       continue
     }
     game.tick(step); elapsed += step; sessionT += step; wall += step * 1000
+    if (sapAt10 === 0 && game.now >= 600) sapAt10 = game.s.earned.sap ?? 0
     // tapping at the profile's rate/duty (duty modelled as fraction of each minute)
     const active = game.now < P.tapUntil && (game.now % 60) < 60 * duty(game.s.runTime)
     if (active) {
@@ -95,7 +96,7 @@ export function runBot(content: Content, opts: BotOptions): BotResult {
     // 1) act on the pinned goal
     if (g) {
       switch (g.kind) {
-        case 'lodge': case 'milestone': if (g.ready && g.target) { const id = g.target; if (game.ci.producers.get(id)?.kind === 'crew' && needsForeman(game.ci, s, id)) game.hireForeman(id); else game.buyProducer(id, g.kind === 'milestone' ? 'max' : 1) } break
+        case 'lodge': case 'milestone': if (g.ready) { const id = game.ci.producers.has(g.id) ? g.id : (g.target ?? g.id); if (game.ci.producers.get(id)?.kind === 'crew' && needsForeman(game.ci, s, id)) game.hireForeman(id); else game.buyProducer(id, g.kind === 'milestone' ? 'max' : 1) } break
         case 'foreman': { const crewId = g.lane ? (g.lane.cond.kind === 'producer' ? g.lane.cond.id : g.id) : g.id; const p = game.ci.producers.get(crewId); if (p?.station) { if (!s.workshops[p.station]) { if (workshopBuildable(game.ci, s, p.station) && canAfford(s, game.ci.workshops.get(p.station)!.cost)) game.buildWorkshop(p.station) } else if (needsForeman(game.ci, s, crewId)) { for (let i = 0; i < 6 && !game.hireForeman(crewId); i++) if (game.tapWorkshop(p.station).made === 0) break } } break }
         case 'workshop': if (g.ready) game.buildWorkshop(g.target ?? g.id); break
         case 'height': case 'line': game.grow('max'); break
@@ -104,7 +105,7 @@ export function runBot(content: Content, opts: BotOptions): BotResult {
         case 'annex': { const [, aid, band] = (g.target ?? '').split(':'); const a = aid ?? g.id; const bandId = band ?? game.ci.annexes.get(a)?.bandId ?? game.ci.bands.find((b) => b.index > 1 && s.boughs.includes(b.id))?.id; if (bandId && g.ready) game.buildAnnex(a, bandId); break }
         case 'crucible': { const rid = (g.target ?? '').replace('crucible:', '') || g.id; const r = game.ci.recipes.get(rid); if (r && game.hints().some((h) => h.recipe.id === rid)) game.crucible(rid, Object.keys(r.inputs)); break }
         case 'craft': { const rid = g.lane?.cond.kind === 'crafted' ? g.lane.cond.id : null; const w = rid ? game.ci.raw.workshops.find((x) => x.recipe === rid) : null; if (w && !s.workshops[w.id] && workshopBuildable(game.ci, s, w.id)) game.buildWorkshop(w.id); if (w && s.workshops[w.id]) { const crew = game.ci.crewByStation.get(w.id); if (crew && needsForeman(game.ci, s, crew.id)) { for (let i = 0; i < 6 && !game.hireForeman(crew.id); i++) if (game.tapWorkshop(w.id).made === 0) break } } break }
-        case 'tap': { if (g.lane?.cond.kind === 'handcrafts') { const st = g.lane.cond.station; if (!s.workshops[st] && workshopBuildable(game.ci, s, st)) game.buildWorkshop(st); for (let i = 0; i < 3; i++) game.tapWorkshop(st) } else if (g.lane?.cond.kind === 'kites') { game.craftKite('kite_carp', { cord: 50, lacquer: 20 }, 60) } break }
+        case 'tap': { if (g.lane?.cond.kind === 'grows') game.grow(1); else if (g.lane?.cond.kind === 'handcrafts') { const st = g.lane.cond.station; if (!s.workshops[st] && workshopBuildable(game.ci, s, st)) game.buildWorkshop(st); for (let i = 0; i < 3; i++) game.tapWorkshop(st) } else if (g.lane?.cond.kind === 'kites') { game.craftKite('kite_carp', { cord: 50, lacquer: 20 }, 60) } break }
         case 'turn': if (opts.turn !== false && game.rings >= BALANCE.prestige.recommendRings) { game.turnSeason(); turns++; buyNodes(game); if (opts.maxTurns && turns >= opts.maxTurns) return finish() } break
       }
       if (g.advice?.action) { const a = g.advice.action; if (a.kind === 'lodge') game.buyProducer(a.id, 1); else if (needsForeman(game.ci, s, a.id)) { const st = game.ci.producers.get(a.id)?.station; if (st) for (let i = 0; i < 6 && !game.hireForeman(a.id); i++) if (game.tapWorkshop(st).made === 0) break } else game.buyProducer(a.id, 1) }
@@ -140,7 +141,7 @@ export function runBot(content: Content, opts: BotOptions): BotResult {
     if (game.s.caravan.offers.length) for (const o of game.s.caravan.offers) game.trade(o)
   }
   return finish()
-  function finish(): BotResult { return { timeline, game, tapSap, totalSap: game.s.earned.sap ?? 0, seconds: elapsed } }
+  function finish(): BotResult { const late = (game.s.earned.sap ?? 0) - sapAt10; return { timeline, game, tapSap, totalSap: game.s.earned.sap ?? 0, seconds: elapsed, tapShareLate: late > 0 ? tapSapLate / late : 0 } }
 }
 
 function growAffordableFrac(game: Game, frac: number): number {
