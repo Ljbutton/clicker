@@ -1,134 +1,212 @@
-import type { Cost } from '@/content/types'
+/** The Compass resolver (§9.3): candidates, ETA from net rates, exclusions, sub-step advice. */
+import type { Cost, WaystoneGoalDef } from '@/content/types'
 import type { GameState } from '@/engine/state'
 import type { ContentIndex } from './index'
 import { BALANCE } from '@/content/balance'
 import type { EffectTable } from './effects'
-import { producerCost, buildingCost, boostCost, bottleneck, canBuild, nextBreakpoint, producerCount, buildingLevel, boostTier } from './economy'
-import { growsToHeight, nextBand } from './grow'
-import { isUnlocked } from './unlock'
-import { prestigeGain, heightForGain, canPrestige } from './prestige'
-import { recipeAvailable } from './craft'
+import { producerCost, bottleneck, workshopBuildable, needsForeman, producerCount, nextMilestone, producerAvailable, runeCost, runeAvailable, runeTier, limbCost, annexCost, annexAvailable, freeLimb, throughput, recipeInputs } from './economy'
+import { growsToHeight, nextBough, ritualCost, ritualAvailable } from './grow'
+import { ringsNow, heartwoodFor, canTurn } from './prestige'
+import { availableHints } from './codex'
+import { conditionProgress } from './unlock'
 
-export type GoalKind = 'band' | 'producer' | 'breakpoint' | 'building' | 'upgrade' | 'boost' | 'prestige' | 'height'
+export type GoalKind = 'lodge' | 'milestone' | 'workshop' | 'foreman' | 'rune' | 'annex' | 'ritual' | 'line' | 'crucible' | 'turn' | 'lane' | 'height' | 'tap' | 'craft' | 'wait'
 
 export interface Goal {
   kind: GoalKind
   id: string
   name: string
   glyph: string
-  /** Where the UI should navigate when the goal is tapped. */
-  tab: 'grow' | 'hatch' | 'craft' | 'tree'
+  tab: 'grow' | 'folk' | 'craft' | 'rings' | 'wardrobe'
+  target?: string
   cost: Cost
   bottleneck: { id: string; have: number; need: number }
-  /** Seconds until affordable at current net rates; Infinity when the bottleneck has no income. */
   eta: number
-  /** True when the goal is affordable right now. */
   ready: boolean
-  /** True when this goal unlocks new content (preferred over pure upgrades). */
   fresh: boolean
-  /** A suggested sub-step when the ETA is long ("hatch a 2nd Barker"). */
-  hint?: string
+  /** Progress 0..1 in worth terms. */
+  progress: number
+  /** Sub-step advice when the ETA is long or infinite. */
+  advice?: { text: string; action?: { kind: 'lodge' | 'crew'; id: string } }
+  /** For Waystone goals: the underlying lane entry. */
+  lane?: WaystoneGoalDef
+  reward?: string
 }
 
-function eta(cost: Cost, s: GameState, rates: Record<string, number>): number {
+function etaFor(cost: Cost, s: GameState, net: Record<string, number>): number {
   let worst = 0
   for (const [id, need] of Object.entries(cost)) {
     const gap = need - (s.res[id] ?? 0)
     if (gap <= 0) continue
-    const r = rates[id] ?? 0
-    if (r <= 0) return Infinity
+    const r = net[id] ?? 0
+    if (r <= 1e-9) return Infinity
     worst = Math.max(worst, gap / r)
   }
   return worst
 }
-
-/** Rates including estimated auto-crafted output so crafted-goods goals get a finite ETA. */
-export function goalRates(ci: ContentIndex, s: GameState, fx: EffectTable, production: Record<string, number>): Record<string, number> {
-  const rates = { ...production }
-  for (const b of ci.raw.buildings) {
-    if (!b.recipes.length || buildingLevel(s, b.id) <= 0) continue
-    const crafter = ci.craftersByStation.get(b.id)
-    if (!crafter || producerCount(s, crafter.id) <= 0) continue
-    const q = s.queues[b.id]
-    const r = q && q[0] ? ci.recipes.get(q[0].recipeId) : (ci.recipesByStation.get(b.id) ?? []).find((x) => recipeAvailable(ci, s, x))
-    if (!r) continue
-    const n = producerCount(s, crafter.id)
-    const speed = (1 + (n - 1) * BALANCE.producers.crafterSpeedPerExtra) * (fx.mult['craft_speed'] ?? 1)
-    // bounded by the slowest input's supply
-    let perSec = (r.output.count / r.seconds) * speed
-    for (const [id, need] of Object.entries(r.inputs)) { const supply = (rates[id] ?? 0) / need; if ((s.res[id] ?? 0) < need * 3) perSec = Math.min(perSec, supply * r.output.count) }
-    rates[r.output.id] = (rates[r.output.id] ?? 0) + perSec
-  }
-  return rates
+function progressFor(ci: ContentIndex, s: GameState, cost: Cost): number {
+  let deficit = 0, total = 0
+  for (const [id, need] of Object.entries(cost)) { const w = ci.resources.get(id)?.worth ?? 1; total += need * w; deficit += Math.max(0, need - (s.res[id] ?? 0)) * w }
+  return total > 0 ? 1 - deficit / total : 1
 }
 
-/** Enumerate every goal the player could pursue right now. */
-export function candidateGoals(ci: ContentIndex, s: GameState, fx: EffectTable, rates: Record<string, number>): Goal[] {
-  const goals: Goal[] = []
+export function makeGoal(ci: ContentIndex, s: GameState, net: Record<string, number>, g: Omit<Goal, 'bottleneck' | 'eta' | 'ready' | 'progress'>): Goal {
+  return { ...g, bottleneck: bottleneck(ci, s, g.cost), eta: etaFor(g.cost, s, net), ready: Object.entries(g.cost).every(([id, n]) => (s.res[id] ?? 0) + 1e-9 >= n), progress: progressFor(ci, s, g.cost) }
+}
+
+/** Every purchasable the player could pursue right now. */
+export function candidates(ci: ContentIndex, s: GameState, fx: EffectTable, net: Record<string, number>, heartwoodRate: number): Goal[] {
+  const out: Goal[] = []
   const base = ci.baseResource
-  const mk = (g: Omit<Goal, 'bottleneck' | 'eta' | 'ready'>): Goal => ({ ...g, bottleneck: bottleneck(ci, s, g.cost), eta: eta(g.cost, s, rates), ready: Object.entries(g.cost).every(([id, n]) => (s.res[id] ?? 0) >= n) })
-
-  // next band
-  const nb = nextBand(ci, s.height)
-  if (nb) { const g = growsToHeight(s, fx, nb.minHeight); goals.push(mk({ kind: 'band', id: nb.id, name: `Reach ${nb.name}`, glyph: nb.glyph, tab: 'grow', cost: { [base]: g.cost }, fresh: true })) }
-
-  // buildings below current height not yet built, and locked buildings above (as height goals)
-  for (const b of ci.raw.buildings) {
-    const lvl = buildingLevel(s, b.id)
-    if (lvl === 0 && s.height < b.height) {
-      const g = growsToHeight(s, fx, b.height)
-      if (!nb || b.height < nb.minHeight) goals.push(mk({ kind: 'height', id: b.id, name: `Grow to ${b.height} m for ${b.name}`, glyph: b.glyph, tab: 'grow', cost: { [base]: g.cost }, fresh: true }))
-    } else if (canBuild(ci, s, b.id)) {
-      if (lvl === 0) goals.push(mk({ kind: 'building', id: b.id, name: `Build ${b.name}`, glyph: b.glyph, tab: 'hatch', cost: buildingCost(ci, s, b.id, fx), fresh: true }))
-      else if (lvl < 3 || lvl % 5 === 4) goals.push(mk({ kind: 'upgrade', id: b.id, name: `${b.name} Lv ${lvl + 1}`, glyph: b.glyph, tab: 'hatch', cost: buildingCost(ci, s, b.id, fx), fresh: false }))
+  const mk = (g: Omit<Goal, 'bottleneck' | 'eta' | 'ready' | 'progress'>) => out.push(makeGoal(ci, s, net, g))
+  // lodges: first hire (fresh) and next milestone
+  for (const p of ci.raw.producers) {
+    if (!producerAvailable(ci, s, p.id)) continue
+    const n = producerCount(s, p.id)
+    if (p.kind === 'lodge') {
+      if (n === 0) mk({ kind: 'lodge', id: p.id, name: `Hire a ${p.name.replace(' Lodge', '')}`, glyph: p.glyph, tab: 'folk', target: p.id, cost: producerCost(ci, s, p.id, fx, 1), fresh: true })
+      else { const m = nextMilestone(n); mk({ kind: 'milestone', id: p.id, name: `${p.name} ×${m >= 25 ? 2 : 1.5} at ${m}`, glyph: p.glyph, tab: 'folk', target: p.id, cost: producerCost(ci, s, p.id, fx, m - n), fresh: false }) }
+    } else if (p.station && s.workshops[p.station]) {
+      if (needsForeman(ci, s, p.id)) mk({ kind: 'foreman', id: p.id, name: `Hire the ${ci.workshops.get(p.station)?.name} Foreman`, glyph: '👷', tab: 'craft', target: p.station, cost: p.foremanCost!, fresh: true })
+      else if (n > 0) { const m = nextMilestone(n); mk({ kind: 'milestone', id: p.id, name: `${ci.workshops.get(p.station)?.name} crew ×${m >= 25 ? 2 : 1.5} at ${m}`, glyph: '👷', tab: 'craft', target: p.station, cost: producerCost(ci, s, p.id, fx, m - n), fresh: false }) }
     }
   }
-
-  // producers: first purchase (fresh) and next breakpoint
-  for (const p of ci.raw.producers) {
-    if (!isUnlocked(ci, s, p.unlock)) continue
-    const n = producerCount(s, p.id)
-    if (n === 0) goals.push(mk({ kind: 'producer', id: p.id, name: `Hatch ${p.name}`, glyph: p.glyph, tab: 'hatch', cost: producerCost(ci, s, p.id, fx, 1), fresh: true }))
-    else { const bp = nextBreakpoint(ci, p.id, n); if (bp) goals.push(mk({ kind: 'breakpoint', id: p.id, name: `${p.name} ×${bp}`, glyph: p.glyph, tab: 'hatch', cost: producerCost(ci, s, p.id, fx, bp - n), fresh: false })) }
+  // workshops with hook in range
+  for (const w of ci.raw.workshops) if (workshopBuildable(ci, s, w.id)) mk({ kind: 'workshop', id: w.id, name: `Build the ${w.name}`, glyph: w.glyph, tab: 'craft', target: w.id, cost: w.cost, fresh: true })
+  // runes: next tier, excluding tiers far above the cheapest unbought rune
+  const avail = ci.raw.runes.filter((r) => runeAvailable(ci, s, r.id))
+  const minTier = avail.length ? Math.min(...avail.map((r) => runeTier(s, r.id))) : 0
+  for (const r of avail) { const t = runeTier(s, r.id); if (t - minTier > BALANCE.compass.runeTierWindow) continue; mk({ kind: 'rune', id: r.id, name: `Carve ${r.name} ${'I II III IV V VI VII VIII IX X XI XII'.split(' ')[t] ?? t + 1}`, glyph: r.glyph, tab: 'grow', target: r.id, cost: runeCost(ci, s, r.id), fresh: t === 0 }) }
+  // annexes on free limbs (cheapest per bough)
+  for (const b of ci.bands) {
+    if (!freeLimb(ci, s, b.id)) continue
+    for (const a of ci.raw.annexes) if (annexAvailable(ci, s, a.id, b.id)) {
+      const cost: Cost = { ...annexCost(ci, s, a.id) }
+      for (const [r, n] of Object.entries(limbCost(s))) cost[r] = (cost[r] ?? 0) + n
+      mk({ kind: 'annex', id: a.id, name: `Sprout a limb: ${a.name}`, glyph: a.glyph, tab: 'grow', target: `annex:${a.id}`, cost, fresh: true })
+    }
   }
-
-  // boosts: next tier
-  for (const b of ci.raw.boosts) {
-    if (!isUnlocked(ci, s, b.unlock)) continue
-    const t = boostTier(s, b.id)
-    if (t >= b.maxTier) continue
-    goals.push(mk({ kind: 'boost', id: b.id, name: `${b.name} ${t + 1 > 1 ? 'II III IV V VI VII VIII IX X'.split(' ')[t - 1] ?? `T${t + 1}` : ''}`.trim(), glyph: b.glyph, tab: 'grow', cost: boostCost(ci, s, b.id), fresh: t === 0 }))
+  // next bough: ritual if height >= line else GROW to line
+  const nb = nextBough(ci, s)
+  if (nb) {
+    const ra = ritualAvailable(ci, s, nb.id)
+    if (ra.ok) mk({ kind: 'ritual', id: nb.id, name: `Ritual: open ${nb.name}`, glyph: nb.glyph, tab: 'grow', target: `ritual:${nb.id}`, cost: ritualCost(ci, s, nb.id, fx)!, fresh: true })
+    else if (s.height < nb.line) { const g = growsToHeight(s, fx, nb.line); mk({ kind: 'line', id: nb.id, name: `GROW to ${nb.line} m (${nb.name})`, glyph: '🌳', tab: 'grow', target: 'grow', cost: { [base]: g.cost }, fresh: true }) }
   }
-
-  // prestige: when it would pay at least 1 (or the next +1)
-  if (s.height >= BALANCE.prestige.minHeight * 0.5) {
-    const now = prestigeGain(s, fx)
-    const target = heightForGain(now + 1)
-    const g = growsToHeight(s, fx, target)
-    goals.push(mk({ kind: 'prestige', id: 'prestige', name: now >= 1 ? `Replant for ${now + 1}` : 'Unlock Replant', glyph: '🌱', tab: 'tree', cost: { [base]: g.cost }, fresh: now === 0 }))
+  // unbuilt workshops above current height: GROW to hook
+  for (const w of ci.raw.workshops) {
+    if (s.workshops[w.id] || !s.boughs.includes(w.bandId) || s.height >= w.hook) continue
+    if (nb && w.hook >= nb.line) continue
+    const r = ci.recipes.get(w.recipe); if (r?.discover && !s.codex.discovered.includes(r.id)) continue
+    const g = growsToHeight(s, fx, w.hook)
+    mk({ kind: 'height', id: w.id, name: `GROW to ${w.hook} m for the ${w.name}`, glyph: w.glyph, tab: 'grow', target: 'grow', cost: { [base]: g.cost }, fresh: true })
   }
-  return goals
+  // crucible hint
+  for (const h of availableHints(ci, s)) out.push({ kind: 'crucible', id: h.recipe.id, name: `Discover ${h.recipe.name} in the Crucible`, glyph: '🔮', tab: 'craft', target: `crucible:${h.recipe.id}`, cost: {}, bottleneck: { id: base, have: 0, need: 0 }, eta: 0, ready: true, fresh: true, progress: 0 })
+  // season turn at rings+1
+  if (s.heartwood > BALANCE.prestige.K * 3 || canTurn(s)) {
+    const rn = ringsNow(s)
+    const target = Math.max(BALANCE.prestige.minRings, rn + 1)
+    const gap = Math.max(0, heartwoodFor(target) - s.heartwood)
+    out.push({ kind: 'turn', id: 'turn', name: rn >= BALANCE.prestige.minRings ? `Turn the Season for ${rn} Rings (+1 at ${target})` : `Reach ${target} Rings to Turn`, glyph: '🌀', tab: 'rings', cost: {}, bottleneck: { id: 'heartwood', have: s.heartwood, need: heartwoodFor(target) }, eta: heartwoodRate > 0 ? gap / heartwoodRate : Infinity, ready: rn >= BALANCE.prestige.minRings, fresh: rn < BALANCE.prestige.minRings, progress: Math.min(1, s.heartwood / heartwoodFor(target)) })
+  }
+  return out
 }
 
-/** Pick the compass goal: the soonest-affordable goal, preferring ones that unlock something new, with a sub-step hint when everything is far. */
-export function pickGoals(ci: ContentIndex, s: GameState, fx: EffectTable, rates: Record<string, number>): { primary: Goal | null; then: Goal[] } {
-  const all = candidateGoals(ci, s, fx, rates).filter((g) => !g.ready || g.fresh)
-  if (!all.length) return { primary: null, then: [] }
-  // With no income for a resource the ETA is infinite; rank those by how much value is still missing (the player can tap for it).
-  const gapWorth = (g: Goal) => Object.entries(g.cost).reduce((a, [id, n]) => a + Math.max(0, n - (s.res[id] ?? 0)) * (ci.resources.get(id)?.worth ?? 1), 0)
-  const score = (g: Goal) => (g.ready ? 0 : Number.isFinite(g.eta) ? g.eta : 1e9 + gapWorth(g)) * (g.fresh ? 0.5 : 1) * (g.kind === 'prestige' ? 1.5 : 1)
-  all.sort((a, b) => score(a) - score(b))
-  const list = all
-  const primary = list[0]!
-  if (primary.eta > BALANCE.compass.maxEtaSeconds || !Number.isFinite(primary.eta)) {
-    // suggest a sub-step: the cheapest producer of the bottleneck resource
-    const bn = primary.bottleneck.id
-    const producers = ci.raw.producers.filter((p) => p.kind === 'gatherer' && p.produces?.id === bn && isUnlocked(ci, s, p.unlock))
-    const cheapest = producers.map((p) => ({ p, c: producerCost(ci, s, p.id, fx, 1) })).sort((a, b) => eta(a.c, s, rates) - eta(b.c, s, rates))[0]
-    if (cheapest) primary.hint = `Hatch a ${producerCount(s, cheapest.p.id) > 0 ? 'nother' : ''} ${cheapest.p.name} to speed this up`.replace('a nother', 'another')
-    else if (!Number.isFinite(primary.eta)) primary.hint = `You need a source of ${ci.resources.get(bn)?.name ?? bn}`
-  }
-  return { primary, then: list.slice(1, 3) }
+/** Pick the best candidate with the §9.3 exclusions. */
+export function best(all: Goal[]): Goal | null {
+  const list = all.filter((g) => !(g.ready && !g.fresh))
+  if (!list.length) return null
+  const anyQuick = list.some((g) => g.eta < BALANCE.compass.maxEta)
+  const eligible = anyQuick ? list.filter((g) => g.eta <= BALANCE.compass.excludeAbove) : list
+  const score = (g: Goal) => (g.ready ? 0 : Number.isFinite(g.eta) ? g.eta : 1e9) * (g.fresh ? 0.5 : 1) * (g.kind === 'turn' ? 1.5 : 1)
+  return [...eligible].sort((a, b) => score(a) - score(b))[0] ?? null
 }
 
-export { canPrestige }
+/** Convert a Waystone lane goal into a Goal with cost/ETA. */
+export function laneGoal(ci: ContentIndex, s: GameState, fx: EffectTable, net: Record<string, number>, g: WaystoneGoalDef, heartwoodRate: number): Goal {
+  const base = ci.baseResource
+  const c = g.cond
+  const mk = (kind: GoalKind, cost: Cost, extra: Partial<Goal> = {}) => ({ ...makeGoal(ci, s, net, { kind, id: g.id, name: g.name, glyph: extra.glyph ?? '📍', tab: g.tab ?? 'grow', target: g.target, cost, fresh: true }), lane: g, reward: rewardText(ci, g), ...extra })
+  const pr = conditionProgress(ci, s, c)
+  switch (c.kind) {
+    case 'producer': { const p = ci.producers.get(c.id); if (!p) break
+      if (p.kind === 'crew' && needsForeman(ci, s, c.id)) return mk('foreman', s.workshops[p.station!] ? p.foremanCost! : (ci.workshops.get(p.station!)?.cost ?? {}), { glyph: '👷', name: g.name })
+      return mk(p.kind === 'lodge' ? 'lodge' : 'milestone', producerAvailable(ci, s, c.id) ? producerCost(ci, s, c.id, fx, Math.max(1, c.min - producerCount(s, c.id))) : {}, { glyph: p.glyph }) }
+    case 'workshop': { const w = ci.workshops.get(c.id); if (!w) break
+      if (s.height < w.hook) { const gr = growsToHeight(s, fx, w.hook); return mk('height', { [base]: gr.cost }, { glyph: w.glyph }) }
+      return mk('workshop', w.cost, { glyph: w.glyph }) }
+    case 'height': { const gr = growsToHeight(s, fx, c.min); return mk('height', { [base]: gr.cost }, { glyph: '🌳' }) }
+    case 'bough': { const b = ci.bandById.get(c.id); if (!b) break
+      if (s.height < b.line) { const gr = growsToHeight(s, fx, b.line); return mk('line', { [base]: gr.cost }, { glyph: b.glyph }) }
+      return mk('ritual', ritualCost(ci, s, c.id, fx) ?? {}, { glyph: b.glyph }) }
+    case 'rune': { const r = ci.runes.get(c.id); if (!r) break; return mk('rune', runeCost(ci, s, c.id), { glyph: r.glyph }) }
+    case 'annex': { const a = ci.annexes.get(c.id); if (!a) break
+      const band = a.bandId ?? ci.bands.find((b) => b.index > 1 && freeLimb(ci, s, b.id))?.id ?? 'roots'
+      const cost: Cost = { ...annexCost(ci, s, c.id) }; for (const [r, n] of Object.entries(limbCost(s))) cost[r] = (cost[r] ?? 0) + n
+      return mk('annex', cost, { glyph: a.glyph, target: `annex:${c.id}:${band}` }) }
+    case 'crafted': { const r = ci.recipes.get(c.id); const w = ci.raw.workshops.find((x) => x.recipe === c.id)
+      const rate = w ? (net[r?.output.id ?? ''] ?? 0) + (Object.values(s.crafted).length ? 0 : 0) : 0
+      const tp = w ? throughput(ci, s, w.id, fx) : 0
+      const remaining = Math.max(0, pr.need - pr.have)
+      const goal = mk('craft', {}, { glyph: r ? ci.resources.get(r.output.id)?.glyph : '⚒️' })
+      goal.eta = tp > 0 ? remaining / Math.max(tp, rate > 0 ? rate : tp) : Infinity; goal.ready = remaining <= 0; goal.progress = pr.need ? pr.have / pr.need : 1
+      goal.bottleneck = { id: r?.output.id ?? base, have: pr.have, need: pr.need }
+      if (!Number.isFinite(goal.eta)) goal.advice = { text: w && !s.workshops[w.id] ? `Build the ${w.name} first` : `Hire the ${w?.name ?? ''} Foreman or tap the hut to craft` }
+      return goal }
+    case 'handcrafts': { const w = ci.workshops.get(c.station); const goal = mk('tap', {}, { glyph: w?.glyph ?? '⚒️', tab: 'craft', target: c.station }); goal.eta = 0; goal.ready = false; goal.progress = pr.need ? pr.have / pr.need : 1; goal.bottleneck = { id: c.station, have: pr.have, need: pr.need }; goal.advice = { text: `Tap the ${w?.name ?? 'workshop'} hut to hand-craft` }
+      if (w && !s.workshops[w.id]) { const inputs = recipeInputs(ci, w.recipe, fx); void inputs; return mk('workshop', w.cost, { glyph: w.glyph, name: `Build the ${w.name}` }) }
+      return goal }
+    case 'rings': { const target = c.min; const gap = Math.max(0, heartwoodFor(target) - s.heartwood); const goal = mk('turn', {}, { glyph: '🌀', tab: 'rings' }); goal.eta = heartwoodRate > 0 ? gap / heartwoodRate : Infinity; goal.ready = ringsNow(s) >= target; goal.progress = Math.min(1, s.heartwood / heartwoodFor(target)); goal.bottleneck = { id: 'heartwood', have: s.heartwood, need: heartwoodFor(target) }; return goal }
+    case 'discovered': { const goal = mk('crucible', {}, { glyph: '🔮', tab: 'craft', target: `crucible:${c.recipe}` }); const hint = availableHints(ci, s).find((h) => h.recipe.id === c.recipe); goal.eta = hint ? 0 : Infinity; goal.ready = !!hint; goal.progress = hint ? 0.5 : 0
+      if (!hint) { const r = ci.recipes.get(c.recipe); const missing = r ? Object.keys(r.inputs).filter((i) => !(s.earned[i] ?? 0)) : []; goal.advice = { text: missing.length > 1 ? `Produce ${missing.slice(0, -1).map((m) => ci.resources.get(m)?.name).join(' and ')} first` : 'Open the Crucible at the stump' } }
+      return goal }
+    default: break
+  }
+  // strikes, resonances, set-pieces, etc.: tap goals with progress
+  const goal = mk('tap', {}, { glyph: '👆', tab: 'grow' })
+  goal.eta = 0; goal.ready = false; goal.progress = pr.need ? Math.min(1, pr.have / pr.need) : 1; goal.bottleneck = { id: c.kind, have: pr.have, need: pr.need }
+  if (c.kind === 'setpiece' || c.kind === 'setpieces' || c.kind === 'gusts') goal.advice = { text: 'Wait for the next set-piece to cross the tree' }
+  else goal.advice = { text: 'Strike the trunk' }
+  return goal
+}
+
+function rewardText(ci: ContentIndex, g: WaystoneGoalDef): string {
+  const r = g.reward; const parts: string[] = []
+  if (r.fireflies) parts.push(`✨${r.fireflies}`)
+  if (r.glimmer) parts.push(`🫙${r.glimmer}`)
+  if (r.chest) parts.push(r.chest === 'bark' ? '🪵 chest' : r.chest === 'amber' ? '🟠 chest' : '⭐ chest')
+  if (r.cosmetic) parts.push(ci.cosmetics.get(r.cosmetic)?.glyph ?? '🎁')
+  if (r.landmark) parts.push('🏛️ landmark')
+  if (r.resources) for (const [id, n] of Object.entries(r.resources)) parts.push(`${ci.resources.get(id)?.glyph ?? id}${n}`)
+  return parts.join(' ')
+}
+
+/** Advice for a long/infinite ETA: the blocking reason, or the cheapest purchase that raises the bottleneck's net rate. */
+export function advise(ci: ContentIndex, s: GameState, fx: EffectTable, net: Record<string, number>, g: Goal): Goal['advice'] | undefined {
+  if (g.advice) return g.advice
+  if (g.ready || (Number.isFinite(g.eta) && g.eta <= BALANCE.compass.maxEta)) return undefined
+  const bn = g.bottleneck.id
+  const res = ci.resources.get(bn)
+  if (!res) return undefined
+  const deficit = Math.max(0, g.bottleneck.need - g.bottleneck.have)
+  // raw: a lodge level; crafted: a crew member (or the workshop / Foreman)
+  const lodge = ci.lodgeByResource.get(bn)
+  if (lodge && producerAvailable(ci, s, lodge.id)) {
+    const n = producerCount(s, lodge.id)
+    const per = lodge.produces!.rate * (fx.mult['all_production'] ?? 1) * (fx.mult['raw_production'] ?? 1) * (fx.mult[`resource:${bn}`] ?? 1)
+    const k = n === 0 ? 1 : Math.max(1, Math.ceil(n * 0.25))
+    const newNet = (net[bn] ?? 0) + per * k
+    const eta = newNet > 0 ? deficit / newNet : Infinity
+    return { text: `${n === 0 ? 'Hire a' : `Hire ${k} more`} ${lodge.name.replace(' Lodge', '')}${Number.isFinite(eta) ? ` → ~${Math.max(1, Math.round(eta / 60))} m` : ''}`, action: { kind: 'lodge', id: lodge.id } }
+  }
+  const w = ci.workshopByOutput.get(bn)
+  if (w) {
+    if (!s.workshops[w.id]) return { text: s.height < w.hook ? `GROW to ${w.hook} m and build the ${w.name}` : `Build the ${w.name}` }
+    const crew = ci.crewByStation.get(w.id)
+    if (crew && needsForeman(ci, s, crew.id)) return { text: `Tap the ${w.name} to hand-craft and hire its Foreman`, action: { kind: 'crew', id: crew.id } }
+    if (crew) return { text: `Hire more ${w.name} crew`, action: { kind: 'crew', id: crew.id } }
+  }
+  if (!Number.isFinite(g.eta)) return { text: res.source }
+  return undefined
+}

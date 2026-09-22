@@ -2,7 +2,7 @@ import { useEffect } from 'preact/hooks'
 import { boot, frame, tab, sheet, game, goTo, type Tab } from './store'
 import { Toasts } from './primitives'
 import { fmt, fmtRate, fmtDuration } from '@/engine/numbers'
-import { bandProgress, nextBand } from '@/systems/grow'
+import { lineProgress } from '@/systems/grow'
 import { SceneHost } from './SceneHost'
 import { GrowTab } from './tabs/GrowTab'
 import { FolkTab } from './tabs/FolkTab'
@@ -49,10 +49,10 @@ export function App() {
 
 function TopBar() {
   const s = game.s
-  const band = game.band
-  const nb = nextBand(game.ci, s.height)
-  const prog = bandProgress(game.ci, s.height)
-  const shown = game.ci.raw.resources.filter((r) => r.id !== game.base && !r.persistent && (s.res[r.id] ?? 0) > 0).sort((a, b) => b.tier - a.tier).slice(0, 3)
+  const band = game.bough
+  const nb = game.nextBough()
+  const prog = lineProgress(game.ci, s)
+  const shown = game.ci.raw.resources.filter((r) => r.id !== game.base && (s.res[r.id] ?? 0) > 0).sort((a, b) => b.tier - a.tier).slice(0, 3)
   return (
     <header class="topbar">
       <div class="top-row">
@@ -72,7 +72,7 @@ function TopBar() {
       {shown.length > 0 && (
         <div class="res-row">
           {shown.map((r) => <span key={r.id} class="res-chip num" title={r.name}>{r.glyph} {fmt(s.res[r.id] ?? 0)}</span>)}
-          {s.cosmetics.petals > 0 && <span class="res-chip num petals">🌸 {s.cosmetics.petals}</span>}
+          {s.fireflies > 0 && <span class="res-chip num petals">✨ {s.fireflies}</span>}
         </div>
       )}
     </header>
@@ -80,21 +80,22 @@ function TopBar() {
 }
 
 function Compass() {
-  const g = game.goals.primary
-  if (!g) return <div class="compass compass-empty">Tap the trunk to begin</div>
+  const g = game.pinned
+  if (!g) return <div class="compass compass-empty">Strike the trunk to begin</div>
   const bn = g.bottleneck
   const res = game.ci.resources.get(bn.id)
-  const pct = bn.need > 0 ? Math.min(1, bn.have / bn.need) : 1
-  const tabFor: Record<string, Tab> = { grow: 'grow', hatch: 'folk', craft: 'craft', tree: 'season' }
+  const pct = Math.max(0, Math.min(1, g.progress))
+  const tabFor: Record<string, Tab> = { grow: 'grow', folk: 'folk', craft: 'craft', rings: 'season', wardrobe: 'more' }
+  const idx = g.lane ? `#${game.s.laneIndex + 1} · ` : ''
   return (
-    <button class={`compass${g.ready ? ' ready' : ''}`} onClick={() => goTo(tabFor[g.tab] ?? 'grow', g.id)} data-testid="compass">
+    <button class={`compass${g.ready ? ' ready' : ''}`} onClick={() => goTo(tabFor[g.tab] ?? 'grow', g.target ?? g.id)} data-testid="compass">
       <span class="compass-glyph">{g.glyph}</span>
       <span class="compass-body">
-        <span class="compass-name">{g.ready ? '✓ ' : ''}{g.name}</span>
+        <span class="compass-name">{g.ready ? '✓ ' : ''}{idx}{g.name}</span>
         <span class="compass-bar"><span class="compass-fill" style={{ width: `${pct * 100}%` }} /></span>
-        <span class="compass-meta num">{res?.glyph} {fmt(bn.have, { int: true })}/{fmt(bn.need, { int: true })}{g.hint ? ` · ${g.hint}` : ''}</span>
+        <span class="compass-meta num">{res ? `${res.glyph} ${fmt(bn.have, { int: true })}/${fmt(bn.need, { int: true })}` : bn.need ? `${fmt(bn.have, { int: true })}/${fmt(bn.need, { int: true })}` : ''}{g.advice ? ` · ${g.advice.text}` : ''}{g.reward ? ` · ${g.reward}` : ''}</span>
       </span>
-      <span class="compass-eta num">{g.ready ? 'Ready' : Number.isFinite(g.eta) ? `~${fmtDuration(g.eta)}` : '—'}</span>
+      <span class="compass-eta num">{g.ready ? 'Ready' : g.eta === 0 ? '' : Number.isFinite(g.eta) ? `~${fmtDuration(g.eta)}` : '—'}</span>
     </button>
   )
 }

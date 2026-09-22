@@ -1,98 +1,107 @@
 /**
- * Content schema. Every piece of game content is data conforming to these types so that
- * balance, names, and breadth can change without touching systems code.
+ * Content schema for HOLLOWSPIRE (see docs/GAME_DESIGN.md). Every piece of content is data conforming
+ * to these types; systems never hard-code an item.
  */
 
-/** A currency or material. `worth` is its value in the base currency, used for pacing and pricing. */
+export type Cost = Record<string, number>
+
+/** Tier 0 raw, 1-4 crafted. Meta currencies (Heartwood, Fireflies, Rings, Glimmer) live in state, not here. */
 export interface ResourceDef {
   id: string
   name: string
   glyph: string
-  tier: number
+  tier: 0 | 1 | 2 | 3 | 4
+  /** Hidden value in Sap: drives Heartwood, bottleneck ranking, chest scaling. */
   worth: number
   color: string
   desc: string
-  /** Base currency (the number that reaches 1e24+). Exactly one resource has this. */
   base?: boolean
-  /** Prestige / premium currencies are never reset and never sold for progress. */
-  persistent?: boolean
+  /** Blocking-reason text for the Waystone advice line when net rate is zero. */
+  source: string
 }
 
-/** A height band ("Reach"): the islands replacement. Crossing into one is a set-piece. */
+/** A Bough: biome floor of the tree. B1 is open at start; others open via a Ritual. */
 export interface BandDef {
   id: string
+  index: number
   name: string
-  minHeight: number
+  /** Height at which the sky changes and the bough's hooks appear; Ritual requires height >= line. */
+  line: number
   glyph: string
-  /** Sky gradient top/bottom colors. */
   sky: [string, string]
-  /** Ground / vine accent color for segments grown in this band. */
   leaf: string
-  /** Ambient critter glyphs that drift through the scene. */
+  /** Ambient critter glyphs. */
   ambient: string[]
-  /** Resources a tap can shake loose while the tip is in this band, weighted. */
+  /** Raws a Strike can shake loose while this is the highest open bough. */
   drops: { id: string; weight: number }[]
   desc: string
+  /** Ritual to open the bough (undefined for B1). */
+  ritual?: { cost: Cost; requiresSeason?: number }
+  /** Roots plunge downward instead of up. */
+  direction: 'up' | 'down'
+  limbSlots: number
+  /** Scene: Landmark objects that live on this bough. */
+  landmarkSlots?: string[]
 }
 
-/** Gating condition for content. */
 export type Unlock =
   | { kind: 'always' }
   | { kind: 'height'; min: number }
-  | { kind: 'building'; id: string; level?: number }
+  | { kind: 'bough'; id: string }
+  | { kind: 'workshop'; id: string }
+  | { kind: 'crew'; id: string; min?: number }
   | { kind: 'producer'; id: string; count: number }
-  | { kind: 'prestige'; count: number }
-  | { kind: 'mechanic'; id: string }
-  | { kind: 'resource'; id: string; lifetime: number }
+  | { kind: 'annex'; id: string }
+  | { kind: 'season'; min: number }
+  | { kind: 'discovered'; recipe: string }
+  | { kind: 'goal'; id: string }
   | { kind: 'all'; of: Unlock[] }
 
-export type Cost = Record<string, number>
+export type EffectTarget =
+  | 'all_production'        // raws, crafting and taps
+  | 'raw_production'        // all lodges
+  | 'craft_throughput'      // all workshops
+  | `resource:${string}`    // lodge output of one raw
+  | `station:${string}`     // one workshop's throughput
+  | 'tap' | 'tap_peg' | 'crit_chance' | 'resonance_mult' | 'resonance_seconds' | 'masterwork_chance' | 'rally_stamina' | 'rally_refill'
+  | 'grow_meters' | 'grow_meters_add' | 'grow_cost'
+  | 'offline_rate_add' | 'offline_cap_add'
+  | 'ritual_cost' | 'producer_cost' | 'crew_cost' | 'recipe_inputs' | 'milestone_bonus'
+  | 'discovery_fireflies' | 'lit_every' | 'dawn_rush_seconds' | 'acorn_minutes' | 'auto_thrum'
+  | 'wind_every' | 'windmill_cap' | 'cellar_hours' | 'thaw_mult' | 'bloom_seconds' | 'rod_charges' | 'caravan_offers'
 
-/** Numeric effect applied by boosts, buildings, prestige nodes, and milestone tokens. */
-export interface Effect {
-  /** What the effect changes. */
-  target:
-    | 'tap' | 'tap_burst_chance' | 'combo_window' | 'cheer_stamina'
-    | 'all_production' | 'base_production' | `producer:${string}` | `resource:${string}`
-    | 'craft_speed' | 'grow_cost' | 'grow_meters' | 'offline_rate' | 'offline_cap'
-    | 'producer_cost' | 'building_cost' | 'prestige_gain' | 'drop_chance'
-  /** 'mult' multiplies (stacks multiplicatively), 'add' adds (stacks additively, applied before mult). */
-  op: 'mult' | 'add'
-  value: number
-}
+export interface Effect { target: EffectTarget; op: 'mult' | 'add'; value: number }
 
-/** A worker / producer: gathers a resource idly, taps for you, or auto-runs a recipe. */
+/** Lodges gather a raw; crews run a workshop. `count` is the level. */
 export interface ProducerDef {
   id: string
   name: string
   glyph: string
-  kind: 'gatherer' | 'crafter'
-  /** For gatherers: what it produces per second at count 1. */
+  kind: 'lodge' | 'crew'
   produces?: { id: string; rate: number }
-  /** For crafters: the station whose queue it automates. */
+  /** Workshop id for crews. */
   station?: string
+  /** Cost of level n = baseCost * costGrowth^n (crews: n-1, since the Foreman is priced separately). */
   baseCost: Cost
   costGrowth: number
+  /** Crews: the Foreman (crew #1) costs N units of the workshop's own output, hand-crafted. */
+  foremanCost?: Cost
   unlock: Unlock
   bandId: string
-  /** Count breakpoints that multiply output (e.g. 10/25/50/100 -> x2 each). */
-  breakpoints: number[]
   desc: string
 }
 
-/** A building on the vine at a fixed height. Levels multiply attached crafters / unlock recipes. */
-export interface BuildingDef {
+/** A workshop: one recipe, a hook height, a crew. */
+export interface WorkshopDef {
   id: string
   name: string
   glyph: string
-  height: number
-  baseCost: Cost
-  costGrowth: number
-  maxLevel: number
-  /** Effects applied per level. */
-  perLevel: Effect[]
-  /** Recipes this building runs (it is a crafting station) if any. */
-  recipes: string[]
+  bandId: string
+  /** Hook height: buildable once height >= hook and the bough is open. */
+  hook: number
+  cost: Cost
+  recipe: string
+  tier: 1 | 2 | 3 | 4
   desc: string
 }
 
@@ -103,51 +112,93 @@ export interface RecipeDef {
   inputs: Cost
   output: { id: string; count: number }
   seconds: number
-  unlock: Unlock
+  /** Cross-chain recipes are discovered in the Crucible. */
+  discover?: boolean
+  hint?: string
 }
 
-/** A permanent (per-run) multiplier bought with crafted goods, in escalating tiers. */
+/** Annexes sit on limbs. Some are producers (Apiary hosts Beekeepers), some are mechanics. */
+export interface AnnexDef {
+  id: string
+  name: string
+  glyph: string
+  cost: Cost
+  unlock: Unlock
+  /** Must be built on this bough (undefined = any open bough with a free limb). */
+  bandId?: string
+  /** Levelable annexes (Windmill, Grove). */
+  maxLevel?: number
+  levelCostGrowth?: number
+  /** Effect per level. */
+  perLevel?: Effect[]
+  /** Special behaviour handled by systems. */
+  special?: 'apiary' | 'kite_yard' | 'hearth' | 'windmill' | 'frost_cellar' | 'grove' | 'lightning_rod' | 'caravan_post' | 'owl_nest'
+  desc: string
+}
+
+/** A Rune: tiered permanent multiplier priced in one crafted good. cost(tier k) = baseCost * costGrowth^k. */
 export interface BoostDef {
   id: string
   name: string
   glyph: string
-  /** Cost of tier n = baseCost * costGrowth^n (per resource). */
-  baseCost: Cost
+  good: string
+  baseCost: number
   costGrowth: number
   maxTier: number
-  /** Effect per tier. */
   effect: Effect
   unlock: Unlock
   desc: string
 }
 
 export type Condition =
-  | { kind: 'height'; min: number }
-  | { kind: 'taps'; min: number }
+  | { kind: 'strikes'; min: number }
+  | { kind: 'crits'; min: number }
+  | { kind: 'resonances'; min: number }
   | { kind: 'grows'; min: number }
-  | { kind: 'producers'; min: number }
+  | { kind: 'height'; min: number }
+  | { kind: 'bough'; id: string }
+  | { kind: 'boughs'; min: number }
   | { kind: 'producer'; id: string; min: number }
-  | { kind: 'crafts'; min: number }
-  | { kind: 'craft'; id: string; min: number }
-  | { kind: 'boosts'; min: number }
-  | { kind: 'building'; id: string; level: number }
-  | { kind: 'prestiges'; min: number }
-  | { kind: 'lifetime'; id: string; min: number }
-  | { kind: 'bursts'; min: number }
-  | { kind: 'combo'; min: number }
+  | { kind: 'workshop'; id: string }
+  | { kind: 'annex'; id: string }
+  | { kind: 'limbs'; min: number }
+  | { kind: 'handcrafts'; station: string; min: number }
+  | { kind: 'crafted'; id: string; min: number }
+  | { kind: 'craftsTier'; tier: number; min: number }
+  | { kind: 'lanterns'; min: number; lifetime?: boolean }
+  | { kind: 'rune'; id: string; min: number }
+  | { kind: 'runes'; min: number }
+  | { kind: 'discovered'; recipe: string }
+  | { kind: 'codex'; pct: number }
+  | { kind: 'seasons'; min: number }
+  | { kind: 'rings'; min: number }
+  | { kind: 'lifetimeRings'; min: number }
+  | { kind: 'setpiece'; id: string; min: number }
   | { kind: 'setpieces'; min: number }
+  | { kind: 'fireflies'; min: number }
+  | { kind: 'streak'; min: number }
+  | { kind: 'masterworks'; min: number }
+  | { kind: 'kites'; min: number }
   | { kind: 'cosmetics'; min: number }
+  | { kind: 'thaws'; min: number }
+  | { kind: 'gusts'; min: number }
+  | { kind: 'discharges'; min: number }
+  | { kind: 'trades'; min: number }
+  | { kind: 'blooms'; min: number }
+
+export type ChestTier = 'bark' | 'amber' | 'star' | 'season'
 
 export interface Reward {
   resources?: Cost
-  /** Base-currency reward expressed as seconds of current idle income (scales with progress); floored at `incomeFloor`. */
+  /** Base-currency reward as seconds of current idle income. */
   incomeSeconds?: number
-  incomeFloor?: number
-  petals?: number
+  fireflies?: number
+  glimmer?: number
   cosmetic?: string
-  /** Temporary multiplier token: all production x value for `seconds`. */
   token?: { value: number; seconds: number }
-  chest?: 'wood' | 'silver' | 'gold' | 'giant'
+  chest?: ChestTier
+  /** Permanent scene object id. */
+  landmark?: string
 }
 
 export interface MilestoneDef {
@@ -157,40 +208,61 @@ export interface MilestoneDef {
   cond: Condition
   reward: Reward
   celebration: 'small' | 'medium' | 'big'
-  /** Hidden until achieved (surprise). */
   secret?: boolean
 }
 
+export interface WaystoneGoalDef {
+  id: string
+  name: string
+  cond: Condition
+  reward: Reward
+  /** Dropped from generated Season lanes. */
+  tutorial?: boolean
+  optional?: boolean
+  /** Which tab the goal lives on (tap-through). */
+  tab?: 'grow' | 'folk' | 'craft' | 'rings' | 'wardrobe'
+  /** Item id to highlight. */
+  target?: string
+}
+
+export type Limb = 'roots' | 'trunk' | 'canopy' | 'crown' | 'heartwood'
+
 export interface PrestigeNodeDef {
   id: string
-  limb: string
+  limb: Limb
   name: string
   glyph: string
-  /** Cost of level n = baseCost * costGrowth^n in prestige currency. */
   baseCost: number
   costGrowth: number
   maxLevel: number
   effect?: Effect
-  /** Special non-numeric effects handled by systems. */
-  special?: 'start_producers' | 'keep_boosts_pct' | 'unlock_mechanic' | 'producer_cap'
-  specialValue?: number | string
-  /** Node is only visible/buyable after this many prestiges. */
-  requiresPrestiges?: number
+  special?: 'start_sappers' | 'kept_foremen' | 'deep_carving' | 'sprout' | 'nightwatch' | 'vigor'
+  specialValue?: number
+  requiresSeason?: number
+  requiresNode?: string
+  /** For HEARTWOOD nodes: the mechanic this upgrades. */
+  mechanic?: string
   desc: string
 }
 
-/** Mechanic unlocked by prestige count (the ladder shown on the prestige screen). */
+/** Season ladder row (prestige count keyed). */
 export interface MechanicDef {
   id: string
   name: string
   glyph: string
-  atPrestige: number
-  desc: string
-  /** Implemented in this build, or shown as "coming soon". */
+  /** Unlocked once prestige.count >= atTurn. */
+  atTurn: number
+  seasonName: string
+  palette: { leaf: string; bark: string; accent: string; particle: string; particleGlyph?: string }
+  annex?: string
+  medal?: string
   implemented: boolean
+  desc: string
+  /** Intro goals inserted into generated lanes after Bough 3. */
+  introGoals?: WaystoneGoalDef[]
 }
 
-export type CosmeticCategory = 'hat' | 'vine' | 'building' | 'sky' | 'tap' | 'companion' | 'title' | 'tip'
+export type CosmeticCategory = 'lantern_color' | 'lantern_shape' | 'lantern_glow' | 'tree' | 'hat' | 'chief' | 'roof' | 'sky' | 'tap' | 'meter' | 'crown' | 'companion' | 'frame' | 'title'
 
 export interface CosmeticDef {
   id: string
@@ -198,13 +270,16 @@ export interface CosmeticDef {
   name: string
   glyph: string
   desc: string
-  /** Premium price, or undefined when only earnable. */
+  /** Glimmer price (premium). */
   price?: number
-  /** Milestone id that awards it, when earnable. */
+  /** Firefly price (earned currency). */
+  fireflyPrice?: number
+  /** How it is earned (milestone/goal id, or free text). */
   earnedBy?: string
-  /** Included in the supporter pack. */
   supporter?: boolean
-  /** Rendering parameters consumed by the scene (colors, particle style, etc). */
+  /** Owned from the start. */
+  starter?: boolean
+  /** Rendering parameters consumed by the scene. */
   params: Record<string, string | number | boolean>
 }
 
@@ -214,28 +289,43 @@ export interface SetPieceDef {
   id: string
   name: string
   glyph: string
-  bandId: string
-  /** Seconds between spawns (randomized ±40%). */
-  every: number
-  /** Taps needed to complete and time allowed. */
-  taps: number
+  unlock: Unlock
+  /** Spawn cadence range in seconds. */
+  every: [number, number]
+  /** Seconds on screen. */
   seconds: number
+  taps: number
+  /** Pay `payPerTap` on every tap instead of once at completion. */
+  payPerTap?: boolean
   reward: Reward
+  /** Special handling. */
+  special?: 'acorn' | 'star' | 'woodpecker' | 'gust' | 'lightning'
   desc: string
 }
 
-/** The whole content pack. */
+export interface CaravanOfferDef { id: string; name: string; give: Cost; get: Reward; weight: number }
+
+export interface WishDef { id: string; name: string; cond: Condition; fireflies: number }
+
+export interface LandmarkDef { id: string; name: string; glyph: string; desc: string }
+
 export interface Content {
   resources: ResourceDef[]
   bands: BandDef[]
   producers: ProducerDef[]
-  buildings: BuildingDef[]
+  workshops: WorkshopDef[]
   recipes: RecipeDef[]
-  boosts: BoostDef[]
+  annexes: AnnexDef[]
+  runes: BoostDef[]
   milestones: MilestoneDef[]
+  waystoneSeason1: WaystoneGoalDef[]
+  legacyLane: { id: string; name: string; cond: Condition }[]
   prestigeNodes: PrestigeNodeDef[]
   mechanics: MechanicDef[]
   cosmetics: CosmeticDef[]
   bundles: BundleDef[]
   setPieces: SetPieceDef[]
+  caravanOffers: CaravanOfferDef[]
+  wishes: WishDef[]
+  landmarks: LandmarkDef[]
 }

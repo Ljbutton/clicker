@@ -1,3 +1,4 @@
+@import './ui/ui.css';
 /* ---------- Design tokens (dark-first; the game lives underground) ---------- */
 :root {
   --bg: #0b0d14;

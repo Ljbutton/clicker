@@ -1,68 +1,63 @@
-/**
- * Every tunable number that is not per-item content lives here so the headless simulator
- * and the design doc can be reconciled in one place.
- */
+/** Every tunable number that is not per-item content (docs/GAME_DESIGN.md). */
 export const BALANCE = {
   base: 'sap',
   tap: {
-    /** Base currency per tap before multipliers. */
     base: 1,
-    /** Tap value is never less than this many seconds of current idle income (keeps taps meaningful at scale). */
-    idlePegSeconds: 4,
-    /** Chance a tap shakes loose a band resource. */
+    /** Strike = base * max(1, peg * idleSapPerSec). */
+    peg: 0.25,
     dropChance: 0.2,
-    /** Burst (crit) chance and multiplier; every Nth tap is a guaranteed burst so it is legible. */
-    burstChance: 0.06,
-    burstMult: 12,
-    burstEvery: 25,
-    /** Consecutive taps within this window keep the combo alive; the combo decays after `decay` seconds. */
-    comboWindow: 0.6,
-    comboDecay: 1.2,
-    /** [tapsNeeded, multiplier] steps. */
-    comboSteps: [[5, 1.5], [12, 2], [25, 3], [50, 5]] as [number, number][],
-    /** Every N taps the tip blooms and drops a small chest. */
+    critChance: 0.05,
+    critMult: 10,
+    critEvery: 25,
     bloomEvery: 500,
+    thrumPerStrike: 6,
+    thrumIdleBeforeDrain: 0.8,
+    thrumDrainPerSec: 15,
+    thrumSteps: [[25, 1.5], [50, 2], [75, 3]] as [number, number][],
+    resonanceSeconds: 4,
+    resonanceMult: 5,
+    /** The Thrum meter unlocks at this Season-1 lane goal index (0-based) or once the Sawmill exists. */
+    thrumUnlockGoal: 10,
+    dropletSeconds: 3,
+    dropletBoostSeconds: 30,
+    dropletBoostMult: 2,
+    masterworkChance: 0.05,
+    masterworkMult: 3,
+    dawnRushSeconds: 60,
+    dawnRushMult: 3,
+    dawnRushThrum: 50,
+    autoThrumEvery: 90,
   },
-  cheer: {
-    /** Tapping grants a short window where all producers work at `mult`. Holding drains stamina. */
-    windowSeconds: 3,
-    mult: 2,
-    staminaSeconds: 12,
-    staminaRefillSeconds: 30,
-    unlockHeight: 200,
-  },
-  grow: {
-    baseCost: 10,
-    costGrowth: 1.18,
-    /** Meters per GROW = (baseMeters + grows * slope) * grow_meters multiplier. */
-    baseMeters: 1,
-    slope: 0.25,
-  },
+  rally: { holdMs: 400, mult: 2, staminaSeconds: 10, refillSeconds: 30, unlockBough: 'canopy' },
+  grow: { baseCost: 10, costGrowth: 1.18, baseMeters: 1, slope: 0.25, vigorCap: 6 },
   producers: {
-    /** Output multiplier applied at each breakpoint (count >= bp). */
-    breakpointMult: 2,
-    maxQueue: 5,
-    /** Auto-crafter speed: 1 + (count - 1) * perExtra. */
-    crafterSpeedPerExtra: 0.5,
+    /** Milestone pattern: 10 -> x1.5, each of 25/50/100/200 -> x2, every further 100 -> x2. */
+    firstMilestone: 10, firstMult: 1.5, doubleAt: [25, 50, 100, 200], everyAfter: 100,
+    feedDefault: 0.5,
+    feedOptions: [0, 0.25, 0.5, 0.9],
   },
-  offline: {
-    fullRateHours: 2,
-    halfRateHours: 12,
-    capHours: 24,
-    quarterRate: 0.25,
-    /** Coarse step for offline crafting simulation, seconds. */
-    craftStep: 60,
-    maxCraftSteps: 2000,
+  limbs: { baseCost: 10, growth: 2.5, good: 'beam', rediscoverDiscount: 0.5 },
+  ritual: { seasonDiscount: 0.9, seasonFloor: 0.3, absoluteFloor: 0.25, holdMs: 3000 },
+  offline: { rate: 0.5, capHours: 8, maxCapHours: 24, step: 60, maxSteps: 1440, returnChestHours: 2, amberChestHours: 12, minSeconds: 30 },
+  prestige: { K: 3e6, mult: 2, exponent: 1.5, minRings: 3, recommendRings: 5, ringPassive: 0.05, holdMs: 1500 },
+  lanterns: { litEvery: 100, litBonus: 0.05, maxLit: 12 },
+  night: { cycleSeconds: 720, daySeconds: 480, maxFireflies: 15 },
+  compass: { maxEta: 600, excludeAbove: 3600, runeTierWindow: 3, ema: 10 },
+  chests: {
+    openTaps: 3,
+    maxPending: 5,
+    bark: { incomeSeconds: 120, fireflies: [10, 25], cosmeticChance: 0.1 },
+    amber: { incomeSeconds: 900, fireflies: [50, 100], token: { value: 2, seconds: 600 } },
+    star: { incomeSeconds: 3600, fireflies: [150, 150], token: { value: 2, seconds: 600 } },
+    season: { glimmer: 10, fireflies: 100, token: { value: 2, seconds: 1200 } },
   },
-  prestige: {
-    minHeight: 1200,
-    /** Currency = floor((height / divisor) ^ exponent). */
-    divisor: 1000,
-    exponent: 1.5,
-    keyBonus: 0.5,
-  },
-  setPieces: { rewardScaleSeconds: 30 },
-  compass: { maxEtaSeconds: 600 },
-  chests: { openTaps: 3 },
-  daily: { petals: 5 },
+  daily: { glimmer: 3, fireflies: 15 },
+  setPieces: { minPlaySeconds: 300, maxOnScreen: 20 },
+  wind: { every: 120, jitter: 0.4, leaves: 12, seconds: 8, leafIncomeSeconds: 10, windmillBonus: 0.08, windmillCap: 10 },
+  frost: { cellarHours: 24, thawTaps: 10, thawMult: 2, autoThawSeconds: 600, snowEvery: 300, snowSeconds: 30, snowMult: 2 },
+  bloom: { every: 180, perBough: 4, boostSeconds: 12, mult: 4 },
+  storm: { every: 300, seconds: 40, strikeEvery: 8, maxCharges: 5, chargeCraftSeconds: 60, autoDischargeAfter: 120, autoDischargeFrac: 0.5 },
+  caravan: { everyPlay: 1800, dockSeconds: 300, offers: 3 },
+  codex: { refund: 0.8, guaranteedAttempt: 3, firefliesPerTier: 20 },
+  laneRewardScale: { perSeason: 0.1, cap: 2 },
 } as const

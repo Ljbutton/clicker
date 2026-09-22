@@ -6,27 +6,36 @@ import { geomCost, geomCostN, geomMaxAffordable } from '@/engine/numbers'
 import { type EffectTable, mult, add } from './effects'
 import { isUnlocked } from './unlock'
 
-/* ---------- resources ---------- */
+/* ---------- resources & Heartwood ---------- */
 export function have(s: GameState, id: string): number { return s.res[id] ?? 0 }
 
-export function gain(s: GameState, id: string, amount: number) {
-  if (amount <= 0 || !Number.isFinite(amount)) return
+/** Add a resource; every unit produced counts toward Heartwood at its worth. */
+export function gain(ci: ContentIndex, s: GameState, id: string, amount: number) {
+  if (!(amount > 0) || !Number.isFinite(amount)) return
   s.res[id] = (s.res[id] ?? 0) + amount
   s.earned[id] = (s.earned[id] ?? 0) + amount
+  const w = ci.resources.get(id)?.worth ?? 0
+  if (w > 0) { s.heartwood += amount * w; s.lifetimeHeartwood += amount * w }
 }
 
 export function canAfford(s: GameState, cost: Cost, times = 1): boolean {
-  for (const [id, n] of Object.entries(cost)) if ((s.res[id] ?? 0) < n * times) return false
+  for (const [id, n] of Object.entries(cost)) if ((s.res[id] ?? 0) + 1e-9 < n * times) return false
   return true
 }
 
 export function spend(s: GameState, cost: Cost, times = 1): boolean {
   if (!canAfford(s, cost, times)) return false
-  for (const [id, n] of Object.entries(cost)) s.res[id] = (s.res[id] ?? 0) - n * times
+  for (const [id, n] of Object.entries(cost)) s.res[id] = Math.max(0, (s.res[id] ?? 0) - n * times)
   return true
 }
 
-/** The single resource that most limits affording `cost` (largest shortfall in worth terms). */
+export function scaleCost(cost: Cost, k: number): Cost {
+  const out: Cost = {}
+  for (const [id, n] of Object.entries(cost)) out[id] = n * k
+  return out
+}
+
+/** The resource that most limits affording `cost` (largest shortfall in worth). */
 export function bottleneck(ci: ContentIndex, s: GameState, cost: Cost): { id: string; have: number; need: number } {
   let worst: { id: string; have: number; need: number; gap: number } | null = null
   for (const [id, need] of Object.entries(cost)) {
@@ -37,111 +46,278 @@ export function bottleneck(ci: ContentIndex, s: GameState, cost: Cost): { id: st
   return worst ?? { id: ci.baseResource, have: 0, need: 0 }
 }
 
-/* ---------- producers ---------- */
+/* ---------- milestone multiplier (lodges and crews) ---------- */
+export function milestoneMult(n: number, fx?: EffectTable): number {
+  const p = BALANCE.producers
+  const bonus = fx ? add(fx, 'milestone_bonus') : 0 // Old Growth: +0.25 per level on the x2 steps
+  let m = 1
+  if (n >= p.firstMilestone) m *= p.firstMult
+  for (const t of p.doubleAt) if (n >= t) m *= 2 + bonus
+  const last = p.doubleAt[p.doubleAt.length - 1]!
+  if (n >= last + p.everyAfter) m *= Math.pow(2 + bonus, Math.floor((n - last) / p.everyAfter))
+  return m
+}
+
+export function nextMilestone(n: number): number {
+  const p = BALANCE.producers
+  if (n < p.firstMilestone) return p.firstMilestone
+  for (const t of p.doubleAt) if (n < t) return t
+  const last = p.doubleAt[p.doubleAt.length - 1]!
+  return last + p.everyAfter * (Math.floor((n - last) / p.everyAfter) + 1)
+}
+
+/* ---------- producers: lodges and crews ---------- */
 export function producerCount(s: GameState, id: string) { return s.producers[id] ?? 0 }
 
+/** Is the Foreman (crew #1) the next purchase for this crew? */
+export function needsForeman(ci: ContentIndex, s: GameState, id: string): boolean {
+  const p = ci.producers.get(id)
+  return !!p && p.kind === 'crew' && !!p.foremanCost && producerCount(s, id) === 0
+}
+
+/** Cost of the next n levels (Foreman excluded: it is bought via hireForeman). */
 export function producerCost(ci: ContentIndex, s: GameState, id: string, fx: EffectTable, n = 1): Cost {
   const p = ci.producers.get(id)!
   const owned = producerCount(s, id)
-  const disc = mult(fx, 'producer_cost')
+  const disc = mult(fx, 'producer_cost') * (p.kind === 'crew' ? mult(fx, 'crew_cost') : 1)
+  const k = p.kind === 'crew' && p.foremanCost ? Math.max(0, owned - 1) : owned
   const out: Cost = {}
-  for (const [r, base] of Object.entries(p.baseCost)) out[r] = geomCostN(base * disc, p.costGrowth, owned, n)
+  for (const [r, base] of Object.entries(p.baseCost)) out[r] = geomCostN(base * disc, p.costGrowth, k, n)
   return out
 }
 
 export function producerMaxAffordable(ci: ContentIndex, s: GameState, id: string, fx: EffectTable): number {
   const p = ci.producers.get(id)!
   const owned = producerCount(s, id)
-  const disc = mult(fx, 'producer_cost')
+  const disc = mult(fx, 'producer_cost') * (p.kind === 'crew' ? mult(fx, 'crew_cost') : 1)
+  const k = p.kind === 'crew' && p.foremanCost ? Math.max(0, owned - 1) : owned
   let best = Infinity
-  for (const [r, base] of Object.entries(p.baseCost)) best = Math.min(best, geomMaxAffordable(base * disc, p.costGrowth, owned, s.res[r] ?? 0))
+  for (const [r, base] of Object.entries(p.baseCost)) best = Math.min(best, geomMaxAffordable(base * disc, p.costGrowth, k, s.res[r] ?? 0))
   return Number.isFinite(best) ? best : 0
+}
+
+export function producerAvailable(ci: ContentIndex, s: GameState, id: string): boolean {
+  const p = ci.producers.get(id)
+  if (!p) return false
+  if (!s.boughs.includes(p.bandId)) return false
+  if (p.kind === 'crew' && p.station && !s.workshops[p.station]) return false
+  return isUnlocked(ci, s, p.unlock)
 }
 
 export function buyProducer(ci: ContentIndex, s: GameState, id: string, fx: EffectTable, n = 1): number {
   const p = ci.producers.get(id)
-  if (!p || n <= 0 || !isUnlocked(ci, s, p.unlock)) return 0
+  if (!p || n <= 0 || !producerAvailable(ci, s, id)) return 0
+  if (needsForeman(ci, s, id)) return 0
   const cost = producerCost(ci, s, id, fx, n)
   if (!spend(s, cost)) return 0
   s.producers[id] = producerCount(s, id) + n
   return n
 }
 
-/** Breakpoint multiplier for a producer at a given count. */
-export function breakpointMult(ci: ContentIndex, id: string, count: number): number {
+/** Hire the Foreman: pay N units of the workshop's own output. */
+export function hireForeman(ci: ContentIndex, s: GameState, id: string): boolean {
   const p = ci.producers.get(id)
-  if (!p) return 1
-  let m = 1
-  for (const bp of p.breakpoints) if (count >= bp) m *= BALANCE.producers.breakpointMult
-  return m
+  if (!p || !needsForeman(ci, s, id) || !producerAvailable(ci, s, id)) return false
+  if (!spend(s, p.foremanCost!)) return false
+  s.producers[id] = 1
+  return true
 }
 
-export function nextBreakpoint(ci: ContentIndex, id: string, count: number): number | null {
-  const p = ci.producers.get(id)
-  if (!p) return null
-  for (const bp of p.breakpoints) if (count < bp) return bp
-  return null
+/* ---------- workshops ---------- */
+export function workshopBuilt(s: GameState, id: string) { return !!s.workshops[id] }
+
+export function workshopBuildable(ci: ContentIndex, s: GameState, id: string): boolean {
+  const w = ci.workshops.get(id)
+  if (!w || s.workshops[id]) return false
+  if (!s.boughs.includes(w.bandId) || s.height < w.hook) return false
+  const r = ci.recipes.get(w.recipe)
+  if (r?.discover && !s.codex.discovered.includes(r.id)) return false
+  return true
 }
 
-/** Per-second production of every resource from gatherers (not taps, not crafting). */
-export function productionRates(ci: ContentIndex, s: GameState, fx: EffectTable): Record<string, number> {
+export function buildWorkshop(ci: ContentIndex, s: GameState, id: string): boolean {
+  if (!workshopBuildable(ci, s, id)) return false
+  const w = ci.workshops.get(id)!
+  if (!spend(s, w.cost)) return false
+  s.workshops[id] = true
+  if (s.feed[id] == null) s.feed[id] = BALANCE.producers.feedDefault
+  return true
+}
+
+export function crewOf(ci: ContentIndex, s: GameState, station: string): number {
+  const c = ci.crewByStation.get(station)
+  return c ? producerCount(s, c.id) : 0
+}
+
+/** Effective recipe inputs after Thrifty Recipes. */
+export function recipeInputs(ci: ContentIndex, recipeId: string, fx: EffectTable): Cost {
+  const r = ci.recipes.get(recipeId)!
+  const k = mult(fx, 'recipe_inputs')
+  return k === 1 ? r.inputs : scaleCost(r.inputs, k)
+}
+
+/** Crafts per second for a workshop (0 when no crew). Hearth Annex doubles one chosen workshop. */
+export function throughput(ci: ContentIndex, s: GameState, station: string, fx: EffectTable): number {
+  const w = ci.workshops.get(station)
+  if (!w || !s.workshops[station]) return 0
+  const crew = crewOf(ci, s, station)
+  if (crew <= 0) return 0
+  const r = ci.recipes.get(w.recipe)!
+  let t = crew * (1 / r.seconds) * milestoneMult(crew, fx) * mult(fx, 'craft_throughput') * mult(fx, 'all_production') * mult(fx, `station:${station}`)
+  if (s.hearthTarget === station) t *= 2
+  const bm = fx.bandMult[w.bandId]; if (bm) t *= bm
+  return t
+}
+
+/** Gross lodge production per second for every raw (before workshops draw). */
+export function lodgeRates(ci: ContentIndex, s: GameState, fx: EffectTable, offlineMult = 1): Record<string, number> {
   const out: Record<string, number> = {}
-  const all = mult(fx, 'all_production')
-  for (const [id, count] of Object.entries(s.producers)) {
-    if (count <= 0) continue
+  const all = mult(fx, 'all_production') * mult(fx, 'raw_production') * offlineMult
+  for (const [id, n] of Object.entries(s.producers)) {
+    if (n <= 0) continue
     const p = ci.producers.get(id)
-    if (!p || p.kind !== 'gatherer' || !p.produces) continue
-    const res = p.produces.id
-    let rate = p.produces.rate * count * breakpointMult(ci, id, count) * all * mult(fx, `producer:${id}`) * mult(fx, `resource:${res}`)
-    if (res === ci.baseResource) rate *= mult(fx, 'base_production')
-    rate += add(fx, `producer:${id}`) * count
-    out[res] = (out[res] ?? 0) + rate
+    if (!p || p.kind !== 'lodge' || !p.produces) continue
+    let rate = n * p.produces.rate * milestoneMult(n, fx) * all * mult(fx, `resource:${p.produces.id}`)
+    const bm = fx.bandMult[p.bandId]; if (bm) rate *= bm
+    if (p.id === 'beekeeper' && (s.annexLevels['grove'] ?? 0) > 0) rate *= 2
+    out[p.produces.id] = (out[p.produces.id] ?? 0) + rate
   }
   return out
 }
 
-/** Rate for a single resource (0 when none). */
-export function rateOf(rates: Record<string, number>, id: string) { return rates[id] ?? 0 }
+export interface EconomyRates { gross: Record<string, number>; consumed: Record<string, number>; net: Record<string, number>; starved: Record<string, string | null> }
 
-/* ---------- buildings ---------- */
-export function buildingLevel(s: GameState, id: string) { return s.buildings[id] ?? 0 }
-
-export function buildingCost(ci: ContentIndex, s: GameState, id: string, fx: EffectTable): Cost {
-  const b = ci.buildings.get(id)!
-  const lvl = buildingLevel(s, id)
-  const disc = mult(fx, 'building_cost')
-  const out: Cost = {}
-  for (const [r, base] of Object.entries(b.baseCost)) out[r] = geomCost(base * disc, b.costGrowth, lvl)
-  return out
+/**
+ * The single economy step used live, offline and by the simulator.
+ * Lodges produce; then workshops in tier order convert inputs to outputs, drawing at most `feed` × gross(input) per second.
+ */
+export function stepEconomy(ci: ContentIndex, s: GameState, fx: EffectTable, dt: number, offlineMult = 1): EconomyRates {
+  const gross = lodgeRates(ci, s, fx, offlineMult)
+  const consumed: Record<string, number> = {}
+  const starved: Record<string, string | null> = {}
+  for (const [id, r] of Object.entries(gross)) gain(ci, s, id, r * dt)
+  for (const w of ci.workshopOrder) {
+    if (!s.workshops[w.id]) continue
+    const tp = throughput(ci, s, w.id, fx)
+    if (tp <= 0) continue
+    const r = ci.recipes.get(w.recipe)!
+    const inputs = recipeInputs(ci, w.recipe, fx)
+    const feed = s.feed[w.id] ?? BALANCE.producers.feedDefault
+    let crafts = tp * dt + (s.craftAcc[w.id] ?? 0)
+    let limiter: string | null = null
+    for (const [rid, n] of Object.entries(inputs)) {
+      const allowed = Math.min(s.res[rid] ?? 0, feed * (gross[rid] ?? 0) * dt + 1e-12)
+      const maxCrafts = allowed / n
+      if (maxCrafts < crafts) { crafts = maxCrafts; limiter = rid }
+    }
+    if (crafts <= 1e-12) { starved[w.id] = limiter ?? Object.keys(inputs)[0] ?? null; s.craftAcc[w.id] = 0; continue }
+    // integer crafts happen; the remainder carries over so small dt still completes crafts
+    const whole = Math.floor(crafts)
+    s.craftAcc[w.id] = limiter ? 0 : crafts - whole
+    if (whole <= 0) { starved[w.id] = null; continue }
+    for (const [rid, n] of Object.entries(inputs)) { s.res[rid] = Math.max(0, (s.res[rid] ?? 0) - n * whole); consumed[rid] = (consumed[rid] ?? 0) + (n * whole) / dt }
+    const outN = r.output.count * whole
+    gain(ci, s, r.output.id, outN)
+    gross[r.output.id] = (gross[r.output.id] ?? 0) + outN / dt
+    s.crafted[r.id] = (s.crafted[r.id] ?? 0) + whole
+    s.stats.craftsTotal += whole
+    if (r.output.id === 'lantern') s.lifetimeLanterns += whole
+    starved[w.id] = limiter
+  }
+  const net: Record<string, number> = {}
+  for (const id of new Set([...Object.keys(gross), ...Object.keys(consumed)])) net[id] = (gross[id] ?? 0) - (consumed[id] ?? 0)
+  return { gross, consumed, net, starved }
 }
 
-export function canBuild(ci: ContentIndex, s: GameState, id: string): boolean {
-  const b = ci.buildings.get(id)
-  return !!b && s.height >= b.height && buildingLevel(s, id) < b.maxLevel
+/** Hand-craft one unit at a workshop from stock (ignores feed). Returns units produced (3 on a Masterwork). */
+export function handCraft(ci: ContentIndex, s: GameState, station: string, fx: EffectTable, masterwork: boolean): number {
+  const w = ci.workshops.get(station)
+  if (!w || !s.workshops[station]) return 0
+  const r = ci.recipes.get(w.recipe)!
+  const inputs = recipeInputs(ci, w.recipe, fx)
+  if (!spend(s, inputs)) return 0
+  const n = r.output.count * (masterwork ? BALANCE.tap.masterworkMult : 1)
+  gain(ci, s, r.output.id, n)
+  s.crafted[r.id] = (s.crafted[r.id] ?? 0) + 1
+  s.handcrafts[station] = (s.handcrafts[station] ?? 0) + 1
+  s.stats.craftsTotal += 1; s.stats.handcraftsTotal += 1
+  if (masterwork) { s.masterworks++; s.stats.masterworksTotal++ }
+  if (r.output.id === 'lantern') s.lifetimeLanterns += n
+  return n
 }
 
-export function buyBuilding(ci: ContentIndex, s: GameState, id: string, fx: EffectTable): boolean {
-  if (!canBuild(ci, s, id)) return false
-  if (!spend(s, buildingCost(ci, s, id, fx))) return false
-  s.buildings[id] = buildingLevel(s, id) + 1
+/* ---------- runes ---------- */
+export function runeTier(s: GameState, id: string) { return s.runes[id] ?? 0 }
+export function runeCost(ci: ContentIndex, s: GameState, id: string): Cost {
+  const r = ci.runes.get(id)!
+  return { [r.good]: Math.ceil(geomCost(r.baseCost, r.costGrowth, runeTier(s, id))) }
+}
+export function runeAvailable(ci: ContentIndex, s: GameState, id: string): boolean {
+  const r = ci.runes.get(id)
+  return !!r && runeTier(s, id) < r.maxTier && isUnlocked(ci, s, r.unlock)
+}
+export function carveRune(ci: ContentIndex, s: GameState, id: string): boolean {
+  if (!runeAvailable(ci, s, id)) return false
+  if (!spend(s, runeCost(ci, s, id))) return false
+  s.runes[id] = runeTier(s, id) + 1
+  s.lifetimeRunes++; s.stats.runesTotal++
   return true
 }
 
-/* ---------- boosts (grafts) ---------- */
-export function boostTier(s: GameState, id: string) { return s.boosts[id] ?? 0 }
-
-export function boostCost(ci: ContentIndex, s: GameState, id: string): Cost {
-  const b = ci.boosts.get(id)!
-  const tier = boostTier(s, id)
-  const out: Cost = {}
-  for (const [r, base] of Object.entries(b.baseCost)) out[r] = Math.ceil(geomCost(base, b.costGrowth, tier))
-  return out
+/* ---------- limbs & annexes ---------- */
+export function limbCost(s: GameState): Cost { return { [BALANCE.limbs.good]: Math.ceil(BALANCE.limbs.baseCost * Math.pow(BALANCE.limbs.growth, s.limbsBought)) } }
+export function limbsOn(s: GameState, bandId: string) { return s.limbs[bandId] ?? [] }
+export function freeLimb(ci: ContentIndex, s: GameState, bandId: string): boolean {
+  const b = ci.bandById.get(bandId)
+  return !!b && s.boughs.includes(bandId) && limbsOn(s, bandId).length < b.limbSlots
+}
+export function annexBuilt(s: GameState, id: string): boolean { return Object.values(s.limbs).some((l) => l.includes(id)) }
+export function annexAvailable(ci: ContentIndex, s: GameState, id: string, bandId: string): boolean {
+  const a = ci.annexes.get(id)
+  if (!a || annexBuilt(s, id) || !freeLimb(ci, s, bandId)) return false
+  if (a.bandId && a.bandId !== bandId) return false
+  if (a.bandId == null && bandId === 'trunk') return false
+  return isUnlocked(ci, s, a.unlock)
+}
+export function annexCost(ci: ContentIndex, s: GameState, id: string): Cost {
+  const a = ci.annexes.get(id)!
+  return s.annexDiscovered.includes(id) ? scaleCost(a.cost, BALANCE.limbs.rediscoverDiscount) : a.cost
+}
+/** Sprout a limb on a bough and build an annex on it (one purchase: limb Beams + annex cost). */
+export function buildAnnex(ci: ContentIndex, s: GameState, id: string, bandId: string): boolean {
+  if (!annexAvailable(ci, s, id, bandId)) return false
+  const lc = limbCost(s), ac = annexCost(ci, s, id)
+  const total: Cost = { ...ac }
+  for (const [r, n] of Object.entries(lc)) total[r] = (total[r] ?? 0) + n
+  if (!spend(s, total)) return false
+  ;(s.limbs[bandId] ??= []).push(id)
+  s.limbsBought++
+  if (!s.annexDiscovered.includes(id)) s.annexDiscovered.push(id)
+  const a = ci.annexes.get(id)!
+  if (a.maxLevel) s.annexLevels[id] = 1
+  return true
+}
+export function annexLevelCost(ci: ContentIndex, s: GameState, id: string): Cost | null {
+  const a = ci.annexes.get(id)
+  if (!a?.maxLevel) return null
+  const lvl = s.annexLevels[id] ?? 0
+  if (lvl >= a.maxLevel) return null
+  return scaleCost(a.cost, Math.pow(a.levelCostGrowth ?? 1.13, lvl))
+}
+export function upgradeAnnex(ci: ContentIndex, s: GameState, id: string): boolean {
+  if (!annexBuilt(s, id)) return false
+  const c = annexLevelCost(ci, s, id)
+  if (!c || !spend(s, c)) return false
+  s.annexLevels[id] = (s.annexLevels[id] ?? 0) + 1
+  return true
 }
 
-export function buyBoost(ci: ContentIndex, s: GameState, id: string): boolean {
-  const b = ci.boosts.get(id)
-  if (!b || boostTier(s, id) >= b.maxTier || !isUnlocked(ci, s, b.unlock)) return false
-  if (!spend(s, boostCost(ci, s, id))) return false
-  s.boosts[id] = boostTier(s, id) + 1
+/** Can the ritual be performed and paid for right now? */
+export function performRitualCheck(ci: ContentIndex, s: GameState, bandId: string, fx: EffectTable): boolean {
+  const b = ci.bandById.get(bandId)
+  if (!b?.ritual || s.boughs.includes(bandId) || s.height < b.line) return false
+  const r = BALANCE.ritual
+  const k = Math.max(r.absoluteFloor, Math.max(r.seasonFloor, Math.pow(r.seasonDiscount, s.prestige.count)) * mult(fx, 'ritual_cost'))
+  for (const [id, n] of Object.entries(b.ritual.cost)) if ((s.res[id] ?? 0) + 1e-9 < Math.ceil(n * k)) return false
   return true
 }
