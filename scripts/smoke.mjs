@@ -20,7 +20,9 @@ const server = createServer(async (req, res) => {
 await new Promise((r) => server.listen(4180, r))
 await mkdir('screenshots', { recursive: true })
 
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined })
+const { existsSync } = await import('node:fs')
+const fallback = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || (existsSync(fallback) ? fallback : undefined) })
 const ctx = await browser.newContext({ ...devices['iPhone 13'], locale: 'en-US' })
 const page = await ctx.newPage()
 const errors = []
