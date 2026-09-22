@@ -279,6 +279,8 @@ export interface CosmeticDef {
   supporter?: boolean
   /** Owned from the start. */
   starter?: boolean
+  /** Crafted at the Kite Yard from goods + Fireflies (crafting-to-cosmetic bridge). */
+  craft?: { cost: Cost; fireflies: number }
   /** Rendering parameters consumed by the scene. */
   params: Record<string, string | number | boolean>
 }
