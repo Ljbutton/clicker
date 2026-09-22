@@ -203,26 +203,32 @@ export function stepEconomy(ci: ContentIndex, s: GameState, fx: EffectTable, dt:
     const r = ci.recipes.get(w.recipe)!
     const inputs = recipeInputs(ci, w.recipe, fx)
     const feed = s.feed[w.id] ?? BALANCE.producers.feedDefault
-    let crafts = tp * dt + (s.craftAcc[w.id] ?? 0)
+    const capacity = tp * dt
+    let allowed = capacity
     let limiter: string | null = null
     for (const [rid, n] of Object.entries(inputs)) {
-      const allowed = Math.min(s.res[rid] ?? 0, feed * (gross[rid] ?? 0) * dt + 1e-12)
-      const maxCrafts = allowed / n
-      if (maxCrafts < crafts) { crafts = maxCrafts; limiter = rid }
+      // draw rate capped by feed × gross production of the input, and by stock on hand
+      const byFeed = (feed * (gross[rid] ?? 0) * dt) / n
+      const byStock = (s.res[rid] ?? 0) / n
+      const mc = Math.min(byFeed, byStock)
+      if (mc < allowed) { allowed = mc; limiter = rid }
     }
-    if (crafts <= 1e-12) { starved[w.id] = limiter ?? Object.keys(inputs)[0] ?? null; s.craftAcc[w.id] = 0; continue }
-    // integer crafts happen; the remainder carries over so small dt still completes crafts
-    const whole = Math.floor(crafts)
-    s.craftAcc[w.id] = limiter ? 0 : crafts - whole
-    if (whole <= 0) { starved[w.id] = null; continue }
-    for (const [rid, n] of Object.entries(inputs)) { s.res[rid] = Math.max(0, (s.res[rid] ?? 0) - n * whole); consumed[rid] = (consumed[rid] ?? 0) + (n * whole) / dt }
-    const outN = r.output.count * whole
-    gain(ci, s, r.output.id, outN)
-    gross[r.output.id] = (gross[r.output.id] ?? 0) + outN / dt
-    s.crafted[r.id] = (s.crafted[r.id] ?? 0) + whole
-    s.stats.craftsTotal += whole
-    if (r.output.id === 'lantern') s.lifetimeLanterns += whole
-    starved[w.id] = limiter
+    let acc = (s.craftAcc[w.id] ?? 0) + Math.max(0, allowed)
+    let whole = Math.floor(acc)
+    for (const [rid, n] of Object.entries(inputs)) whole = Math.min(whole, Math.floor((s.res[rid] ?? 0) / n))
+    if (whole > 0) {
+      for (const [rid, n] of Object.entries(inputs)) { s.res[rid] = Math.max(0, (s.res[rid] ?? 0) - n * whole); consumed[rid] = (consumed[rid] ?? 0) + (n * whole) / dt }
+      const outN = r.output.count * whole
+      gain(ci, s, r.output.id, outN)
+      gross[r.output.id] = (gross[r.output.id] ?? 0) + outN / dt
+      s.crafted[r.id] = (s.crafted[r.id] ?? 0) + whole
+      s.stats.craftsTotal += whole
+      if (r.output.id === 'lantern') s.lifetimeLanterns += whole
+      acc -= whole
+    }
+    // bank at most two crafts of progress so a starved workshop cannot store a backlog
+    s.craftAcc[w.id] = Math.min(acc, 2)
+    starved[w.id] = allowed < capacity * 0.5 ? limiter : null
   }
   const net: Record<string, number> = {}
   for (const id of new Set([...Object.keys(gross), ...Object.keys(consumed)])) net[id] = (gross[id] ?? 0) - (consumed[id] ?? 0)
