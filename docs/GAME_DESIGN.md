@@ -10,9 +10,9 @@
 > - Chests pay 60 s / 4 min / 15 min of steady income (Bark / Amber / Star); the bough milestone no longer duplicates the lane's Amber chest.
 > - Rune of Thrum: x1.25 per tier, 8 tiers. Lodge cost growth 1.15 (was 1.13), crew 1.18 (was 1.15).
 > - Rituals: Canopy 300 Plank + 80 Beam; Upper Trunk 600 Beam + 300 Brick + 120 Glass; Deep Roots 2,000 Beam + 600 Glass + 300 Lacquer.
-> - Rings: K = 2e7 (was 3e6).
+> - Rings: K = 3e7 (was 3e6). Feed dials are shared per resource (sum of consumer dials, capped at 90%) so a tenth of every good always accumulates.
 > - Waystone: goal #43 accepts any set-piece; optional goals are skipped once a Turn is recommended; when the lane head is more than 10 minutes away the bar pins the Compass's nearest goal and moves the lane head to the runway.
-> - Measured (active bot): Kiln Foreman 0:34, Sawmill Foreman 2:48, Roots 3:42, Canopy 5:12, Upper Trunk 8:12, Deep Roots 13:26, 3 Rings ~25 min, 5 Rings ~45 min, Crown ~70 min; strikes ≈ 37% of income after minute 10; casual Turn ~70 min. The early boughs land sooner than §10's targets on purpose: the first ten minutes stay dense with visible world changes.
+> - Measured (active bot): Kiln Foreman 0:34, Sawmill Foreman 2:48, Roots 3:42, Canopy 5:12, Upper Trunk 8:12, Deep Roots 13:26, 3 Rings ~25 min, 5 Rings ~35 min, Crown ~70 min; strikes ≈ 39% of income after minute 10; casual Turn ~60 min. The early boughs land sooner than §10's targets on purpose: the first ten minutes stay dense with visible world changes.
 
 ---
 

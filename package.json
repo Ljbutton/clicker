@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "sim": "tsx src/sim/run.ts",
+    "sim:day": "tsx src/sim/long.ts",
     "smoke": "node scripts/smoke.mjs",
     "playthrough": "node scripts/playthrough.mjs",
     "cap:sync": "cap sync"

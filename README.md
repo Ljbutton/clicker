@@ -39,6 +39,8 @@ npm run build        # production build to dist/ (PWA: manifest + service worker
 npm run smoke        # Playwright: boots dist/ at iPhone size, taps, screenshots ./screenshots
 npm run sim -- 70    # headless bots (active / casual / no-tap) for 70 minutes + the design's §17 pacing assertions
 npm run sim -- 120 active --single   # verbose single run that also Turns the Season
+npm run sim:day      # a modeled day: 100 min of play in 8-minute sessions with 2 h gaps (Turns, seasons, Nightwatch)
+npm run playthrough  # Playwright: scripted play of the real UI (strike, hire, build, craft, sheets, save, return board)
 ```
 
 ### Mobile packaging (Capacitor)

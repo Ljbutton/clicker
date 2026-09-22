@@ -66,7 +66,7 @@ export function runBot(content: Content, opts: BotOptions): BotResult {
   const duty = (t: number) => { for (const [until, d] of P.duty) if (t < until) return d; return 0 }
   while (elapsed < opts.seconds) {
     if (opts.sessionOn && opts.sessionOff && sessionT >= opts.sessionOn) {
-      game.save(); wall += opts.sessionOff * 1000; game.load(); sessionT = 0; elapsed += opts.sessionOff
+      game.save(); wall += opts.sessionOff * 1000; game.load(); sessionT = 0
       for (const c of [...game.s.chests]) game.openChest(c.id)
       continue
     }
@@ -88,6 +88,7 @@ export function runBot(content: Content, opts: BotOptions): BotResult {
     if (game.s.storm.charges >= 3) game.dischargeRod()
     if (!rings3 && game.rings >= 3) { rings3 = true; log('rings', '3 Rings (Turn available)') }
     if (!rings5 && game.rings >= 5) { rings5 = true; log('rings', '5 Rings (Turn recommended)') }
+    if (opts.turn && game.rings >= BALANCE.prestige.recommendRings && game.s.laneIndex >= 40) { game.turnSeason(); turns++; buyNodes(game); rings3 = false; rings5 = false; if (opts.maxTurns && turns >= opts.maxTurns) return finish() }
 
     // decide every 2 s
     if (Math.round(elapsed / step) % Math.round(2 / step) !== 0) continue

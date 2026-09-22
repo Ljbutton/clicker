@@ -63,7 +63,7 @@ export const mechanics: MechanicDef[] = [
     desc: 'The Frost Cellar stores offline production beyond the cap (+24 h) as frozen bundles; 10 taps thaw at x2, or it auto-thaws at x1 after 10 min. Snowfall every 5 min for 30 s: all crafting x2.',
     introGoals: [
       { id: 'frost_cellar', name: 'Build the Frost Cellar', cond: { kind: 'annex', id: 'frost_cellar' }, reward: { fireflies: 20 }, tab: 'grow', target: 'annex:frost_cellar' },
-      { id: 'frost_thaw', name: 'Thaw a frozen bundle', cond: { kind: 'thaws', min: 1 }, reward: { fireflies: 15 }, tab: 'grow', target: 'trunk' },
+      { id: 'frost_snow', name: 'Craft 200 goods during a Snowfall Season', cond: { kind: 'craftsTier', tier: 1, min: 200 }, reward: { fireflies: 15 }, tab: 'craft', target: 'kiln' },
     ] },
   { id: 'bloom', name: 'Bloom', glyph: '🌸', atTurn: 3, seasonName: 'Spring', implemented: true, annex: 'grove', medal: 'tr_spring',
     palette: { leaf: '#7fcf6a', bark: '#6b4a2e', accent: '#ffb7d5', particle: '#ffc6e0', particleGlyph: '🌸' },

@@ -196,6 +196,16 @@ export function stepEconomy(ci: ContentIndex, s: GameState, fx: EffectTable, dt:
   const consumed: Record<string, number> = {}
   const starved: Record<string, string | null> = {}
   for (const [id, r] of Object.entries(gross)) gain(ci, s, id, r * dt)
+  // Feed dials are shared per resource: all consumers together may draw at most the sum of their dials, capped at the
+  // greediest setting (90%), so at least a tenth of every good always accumulates for hand-crafting, Rituals and lodges.
+  const drawn: Record<string, number> = {}
+  const capOf: Record<string, number> = {}
+  const maxShare = BALANCE.producers.feedOptions[BALANCE.producers.feedOptions.length - 1] ?? 0.9
+  for (const w of ci.workshopOrder) {
+    if (!s.workshops[w.id]) continue
+    const f = s.feed[w.id] ?? BALANCE.producers.feedDefault
+    for (const rid of Object.keys(ci.recipes.get(w.recipe)?.inputs ?? {})) capOf[rid] = Math.min(maxShare, (capOf[rid] ?? 0) + f)
+  }
   for (const w of ci.workshopOrder) {
     if (!s.workshops[w.id]) continue
     const tp = throughput(ci, s, w.id, fx)
@@ -207,17 +217,19 @@ export function stepEconomy(ci: ContentIndex, s: GameState, fx: EffectTable, dt:
     let allowed = capacity
     let limiter: string | null = null
     for (const [rid, n] of Object.entries(inputs)) {
-      // draw rate capped by feed × gross production of the input, and by stock on hand
-      const byFeed = (feed * (gross[rid] ?? 0) * dt) / n
+      // draw rate capped by this dial, by the shared per-resource cap, and by stock on hand
+      const g = (gross[rid] ?? 0) * dt
+      const byFeed = (feed * g) / n
+      const byShared = Math.max(0, (capOf[rid] ?? feed) * g - (drawn[rid] ?? 0)) / n
       const byStock = (s.res[rid] ?? 0) / n
-      const mc = Math.min(byFeed, byStock)
+      const mc = Math.min(byFeed, byShared, byStock)
       if (mc < allowed) { allowed = mc; limiter = rid }
     }
     let acc = (s.craftAcc[w.id] ?? 0) + Math.max(0, allowed)
     let whole = Math.floor(acc)
     for (const [rid, n] of Object.entries(inputs)) whole = Math.min(whole, Math.floor((s.res[rid] ?? 0) / n))
     if (whole > 0) {
-      for (const [rid, n] of Object.entries(inputs)) { s.res[rid] = Math.max(0, (s.res[rid] ?? 0) - n * whole); consumed[rid] = (consumed[rid] ?? 0) + (n * whole) / dt }
+      for (const [rid, n] of Object.entries(inputs)) { s.res[rid] = Math.max(0, (s.res[rid] ?? 0) - n * whole); consumed[rid] = (consumed[rid] ?? 0) + (n * whole) / dt; drawn[rid] = (drawn[rid] ?? 0) + n * whole }
       const outN = r.output.count * whole
       gain(ci, s, r.output.id, outN)
       gross[r.output.id] = (gross[r.output.id] ?? 0) + outN / dt
