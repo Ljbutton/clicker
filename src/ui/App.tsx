@@ -10,6 +10,7 @@ import { CraftTab } from './tabs/CraftTab'
 import { SeasonTab } from './tabs/SeasonTab'
 import { MoreTab } from './tabs/MoreTab'
 import { Sheets } from './Sheets'
+import { installJuice } from './juice'
 
 const TABS: { id: Tab; label: string; glyph: string; testid: string }[] = [
   { id: 'grow', label: 'Grow', glyph: '🌳', testid: 'tab-grow' },
@@ -20,10 +21,10 @@ const TABS: { id: Tab; label: string; glyph: string; testid: string }[] = [
 ]
 
 export function App() {
-  useEffect(() => { boot() }, [])
+  useEffect(() => { boot(); installJuice(game) }, [])
   void frame.value
   return (
-    <div class="app">
+    <div class={`app${game.s.settings.leftHand ? ' left' : ''}`}>
       <TopBar />
       <SceneHost />
       <Compass />
@@ -88,7 +89,7 @@ function Compass() {
   const tabFor: Record<string, Tab> = { grow: 'grow', folk: 'folk', craft: 'craft', rings: 'season', wardrobe: 'more' }
   const idx = g.lane ? `#${game.s.laneIndex + 1} · ` : ''
   return (
-    <button class={`compass${g.ready ? ' ready' : ''}`} onClick={() => goTo(tabFor[g.tab] ?? 'grow', g.target ?? g.id)} data-testid="compass">
+    <button class={`compass${g.ready ? ' ready' : ''}`} onClick={() => (sheet.value = 'waystone')} data-testid="compass">
       <span class="compass-glyph">{g.glyph}</span>
       <span class="compass-body">
         <span class="compass-name">{g.ready ? '✓ ' : ''}{idx}{g.name}</span>

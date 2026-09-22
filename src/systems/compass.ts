@@ -164,9 +164,11 @@ export function laneGoal(ci: ContentIndex, s: GameState, fx: EffectTable, net: R
     default: break
   }
   // strikes, resonances, set-pieces, etc.: tap goals with progress
-  const goal = mk('tap', {}, { glyph: '👆', tab: 'grow' })
+  const goal = mk('tap', {}, { glyph: c.kind === 'grows' ? '🌳' : '👆', tab: 'grow', target: c.kind === 'grows' ? 'grow' : undefined })
   goal.eta = 0; goal.ready = false; goal.progress = pr.need ? Math.min(1, pr.have / pr.need) : 1; goal.bottleneck = { id: c.kind, have: pr.have, need: pr.need }
   if (c.kind === 'setpiece' || c.kind === 'setpieces' || c.kind === 'gusts') goal.advice = { text: 'Wait for the next set-piece to cross the tree' }
+  else if (c.kind === 'grows') { const need = growsToHeight(s, fx, s.height + 0.01); void need; goal.advice = { text: (s.res[base] ?? 0) >= 10 ? 'Press GROW' : 'Strike the trunk for Sap, then press GROW' }; goal.cost = { [base]: 10 }; goal.ready = (s.res[base] ?? 0) >= 10; goal.bottleneck = { id: base, have: s.res[base] ?? 0, need: 10 } }
+  else if (c.kind === 'resonances') goal.advice = { text: 'Strike quickly to fill the Thrum ring' }
   else goal.advice = { text: 'Strike the trunk' }
   return goal
 }

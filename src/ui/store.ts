@@ -5,6 +5,7 @@ import { content } from '@/content/data'
 import { browserStorage } from '@/engine/storage'
 import { createLoop } from '@/engine/loop'
 import { setHapticsEnabled } from '@/engine/haptics'
+import { setSoundEnabled } from '@/engine/audio'
 
 export const game = new Game(content, { storage: browserStorage(), saveKey: 'hollowspire.save' })
 
@@ -12,7 +13,7 @@ export const game = new Game(content, { storage: browserStorage(), saveKey: 'hol
 export const frame = signal(0)
 export type Tab = 'grow' | 'folk' | 'craft' | 'season' | 'more'
 export const tab = signal<Tab>('grow')
-export const sheet = signal<null | 'wardrobe' | 'shop' | 'settings' | 'waystone' | 'stats' | 'return' | 'prestige'>(null)
+export const sheet = signal<null | 'settings' | 'waystone' | 'stats' | 'return' | 'crucible' | 'caravan'>(null)
 export const returnBoard = signal<import('@/engine/game').ReturnBoard | null>(null)
 
 let saveAcc = 0
@@ -26,6 +27,7 @@ export const loop = createLoop({
 export function boot() {
   const board = game.load()
   setHapticsEnabled(game.s.settings.haptics)
+  setSoundEnabled(game.s.settings.sound)
   if (board) { returnBoard.value = board; sheet.value = 'return' }
   loop.start()
   const persist = () => game.save()
@@ -39,3 +41,8 @@ export function goTo(t: Tab, itemId?: string) {
   tab.value = t
   if (itemId) { highlight.value = itemId; setTimeout(() => { if (highlight.value === itemId) highlight.value = null }, 2500) }
 }
+
+/** Try-on preview: a cosmetic id the scene renders as if equipped (null = none). */
+export const preview = signal<string | null>(null)
+/** Bump to ask the scene to render and share a Season Card. */
+export const requestSeasonCard = signal(0)

@@ -93,3 +93,6 @@ button { font: inherit; color: inherit; }
 .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: none; background: transparent; color: var(--text-dim); font-size: 11px; font-weight: 700; cursor: pointer; }
 .nav-btn.active { color: var(--accent); }
 .nav-glyph { font-size: 22px; }
+.bough-dots { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 4px; z-index: 3; }
+.bough-dot { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: rgba(0,0,0,0.45); font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.now-pill { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 3; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--accent); background: rgba(0,0,0,0.6); color: var(--accent); font-weight: 800; font-size: 13px; cursor: pointer; }
