@@ -1,0 +1,101 @@
+/** §11.4 The Ring Tree (37 nodes; cost of level L = base · 2^L) and §11.5 the Season ladder. requiresSeason is a prestige count (Season N = count N-1). */
+import type { PrestigeNodeDef, MechanicDef } from '../types'
+
+const G = 2
+export const prestigeNodes: PrestigeNodeDef[] = [
+  // ---- ROOTS ----
+  { id: 'roots_rich', limb: 'roots', name: 'Rich Sap', glyph: '💧', baseCost: 1, costGrowth: G, maxLevel: 5, effect: { target: 'raw_production', op: 'mult', value: 1.5 }, desc: 'All raw production x1.5 per level.' },
+  { id: 'roots_start', limb: 'roots', name: 'Head Start', glyph: '🏃', baseCost: 2, costGrowth: G, maxLevel: 4, special: 'start_sappers', specialValue: 5, desc: 'Start each Season with +5 Sappers per level.' },
+  { id: 'roots_old', limb: 'roots', name: 'Old Growth', glyph: '🌳', baseCost: 3, costGrowth: G, maxLevel: 3, effect: { target: 'milestone_bonus', op: 'add', value: 0.25 }, desc: 'Lodge and crew milestone multipliers +25% per level (x2 → x2.25 → x2.5 → x2.75).' },
+  { id: 'roots_vigor1', limb: 'roots', name: 'Vigor I', glyph: '🌱', baseCost: 5, costGrowth: G, maxLevel: 1, effect: { target: 'grow_meters', op: 'mult', value: 1.5 }, desc: 'Metres per GROW x1.5.' },
+  { id: 'roots_cheap', limb: 'roots', name: 'Cheap Hires', glyph: '🪙', baseCost: 8, costGrowth: G, maxLevel: 3, effect: { target: 'producer_cost', op: 'mult', value: 0.9 }, desc: 'Lodge and crew costs x0.9 per level.' },
+  { id: 'roots_vigor2', limb: 'roots', name: 'Vigor II', glyph: '🌿', baseCost: 13, costGrowth: G, maxLevel: 1, effect: { target: 'grow_meters', op: 'mult', value: 2 }, requiresNode: 'roots_vigor1', desc: 'Metres per GROW x2. Requires Vigor I.' },
+  { id: 'roots_ancient', limb: 'roots', name: 'Ancient Roots', glyph: '🪵', baseCost: 21, costGrowth: G, maxLevel: 3, effect: { target: 'all_production', op: 'mult', value: 2 }, requiresSeason: 2, desc: 'All production x2 per level. Season 3 or later.' },
+  { id: 'roots_vigor3', limb: 'roots', name: 'Vigor III', glyph: '🌲', baseCost: 34, costGrowth: G, maxLevel: 1, effect: { target: 'grow_meters', op: 'mult', value: 2 }, requiresNode: 'roots_vigor2', requiresSeason: 4, desc: 'Metres per GROW x2 (Vigor cap x6). Requires Vigor II and Season 5.' },
+  // ---- TRUNK ----
+  { id: 'trunk_grip', limb: 'trunk', name: 'Firm Grip', glyph: '✊', baseCost: 1, costGrowth: G, maxLevel: 2, effect: { target: 'tap_peg', op: 'mult', value: 2 }, desc: 'Tap peg 0.25 s → 0.5 s → 1.0 s of idle income per Strike.' },
+  { id: 'trunk_eye', limb: 'trunk', name: 'Keen Eye', glyph: '👁️', baseCost: 2, costGrowth: G, maxLevel: 4, effect: { target: 'crit_chance', op: 'add', value: 0.05 }, desc: 'Crit chance +5% per level (to 25%).' },
+  { id: 'trunk_long', limb: 'trunk', name: 'Long Thrum', glyph: '🥁', baseCost: 3, costGrowth: G, maxLevel: 3, effect: { target: 'resonance_seconds', op: 'add', value: 2 }, desc: 'Resonance lasts +2 s per level.' },
+  { id: 'trunk_deep', limb: 'trunk', name: 'Deep Resonance', glyph: '🔊', baseCost: 5, costGrowth: G, maxLevel: 1, effect: { target: 'resonance_mult', op: 'mult', value: 1.6 }, desc: 'Resonance x5 → x8.' },
+  { id: 'trunk_auto', limb: 'trunk', name: 'Auto-Thrum', glyph: '🔁', baseCost: 8, costGrowth: G, maxLevel: 1, effect: { target: 'auto_thrum', op: 'mult', value: 2 }, requiresSeason: 1, desc: 'Resonance fires from idle every 90 s. Season 2 or later.' },
+  { id: 'trunk_master', limb: 'trunk', name: 'Masterwork Hands', glyph: '💜', baseCost: 13, costGrowth: G, maxLevel: 4, effect: { target: 'masterwork_chance', op: 'add', value: 0.05 }, desc: 'Masterwork chance +5% per level (to 25%).' },
+  { id: 'trunk_wind', limb: 'trunk', name: 'Second Wind', glyph: '💨', baseCost: 21, costGrowth: G, maxLevel: 2, effect: { target: 'rally_stamina', op: 'add', value: 10 }, requiresSeason: 2, desc: 'Rally stamina +10 s per level and a faster refill. Season 3 or later.' },
+  // ---- CANOPY ----
+  { id: 'canopy_pride', limb: 'canopy', name: "Foreman's Pride", glyph: '👷', baseCost: 1, costGrowth: G, maxLevel: 5, effect: { target: 'craft_throughput', op: 'mult', value: 1.5 }, desc: 'All workshop throughput x1.5 per level.' },
+  { id: 'canopy_kept', limb: 'canopy', name: 'Kept Foremen', glyph: '🏭', baseCost: 2, costGrowth: G, maxLevel: 3, special: 'kept_foremen', desc: 'Start with the Kiln + Sawmill (then + Brickyard/Ropewalk, then + Beamworks/Glasshouse) built and staffed.' },
+  { id: 'canopy_carve', limb: 'canopy', name: 'Deep Carving', glyph: '🔯', baseCost: 3, costGrowth: G, maxLevel: 3, special: 'deep_carving', specialValue: 1, desc: 'Keep 1 tier of every Rune through the Turn, per level.' },
+  { id: 'canopy_thrift', limb: 'canopy', name: 'Thrifty Recipes', glyph: '🧮', baseCost: 5, costGrowth: G, maxLevel: 3, effect: { target: 'recipe_inputs', op: 'mult', value: 0.9 }, desc: 'Recipe inputs −10% per level.' },
+  { id: 'canopy_lit', limb: 'canopy', name: 'Lit Boughs', glyph: '🏮', baseCost: 8, costGrowth: G, maxLevel: 1, effect: { target: 'lit_every', op: 'mult', value: 0.5 }, requiresSeason: 1, desc: 'Lanterns light a bough every 50 instead of 100. Season 2 or later.' },
+  { id: 'canopy_guild', limb: 'canopy', name: 'Guild Crew', glyph: '🛠️', baseCost: 13, costGrowth: G, maxLevel: 3, effect: { target: 'crew_cost', op: 'mult', value: 0.8 }, desc: 'Crew costs x0.8 per level.' },
+  { id: 'canopy_codex', limb: 'canopy', name: 'Codex Mastery', glyph: '📖', baseCost: 21, costGrowth: G, maxLevel: 2, effect: { target: 'discovery_fireflies', op: 'mult', value: 3 }, requiresSeason: 3, desc: 'Discoveries pay x3 Fireflies; discovered goods worth +10%. Season 4 or later.' },
+  // ---- CROWN ----
+  { id: 'crown_night', limb: 'crown', name: 'Nightwatch', glyph: '🌙', baseCost: 1, costGrowth: G, maxLevel: 2, effect: { target: 'offline_rate_add', op: 'add', value: 0.25 }, desc: 'Offline rate 50% → 75% → 100%.' },
+  { id: 'crown_long', limb: 'crown', name: 'Long Night', glyph: '🕯️', baseCost: 2, costGrowth: G, maxLevel: 4, effect: { target: 'offline_cap_add', op: 'add', value: 4 }, desc: 'Offline cap +4 h per level (8 → 24 h).' },
+  { id: 'crown_quick', limb: 'crown', name: 'Quick Rituals', glyph: '⚡', baseCost: 3, costGrowth: G, maxLevel: 5, effect: { target: 'ritual_cost', op: 'mult', value: 0.9 }, desc: 'Ritual costs x0.9 per level.' },
+  { id: 'crown_dawn', limb: 'crown', name: 'Dawn Rush+', glyph: '🌅', baseCost: 5, costGrowth: G, maxLevel: 1, effect: { target: 'dawn_rush_seconds', op: 'add', value: 60 }, desc: 'Dawn Rush 60 s → 120 s.' },
+  { id: 'crown_sprout', limb: 'crown', name: 'Sprout', glyph: '🌱', baseCost: 8, costGrowth: G, maxLevel: 2, special: 'sprout', requiresSeason: 1, desc: 'Start each Season at 30 m with Bough 2 open (then 60 m + Bough 3). Season 2 or later.' },
+  { id: 'crown_golden', limb: 'crown', name: 'Golden Hours', glyph: '🌰', baseCost: 13, costGrowth: G, maxLevel: 1, effect: { target: 'acorn_minutes', op: 'mult', value: 2 }, desc: 'Golden Acorn pays 30 minutes instead of 15.' },
+  { id: 'crown_time', limb: 'crown', name: 'Time Ring', glyph: '⏳', baseCost: 21, costGrowth: G, maxLevel: 3, effect: { target: 'all_production', op: 'mult', value: 1.5 }, requiresSeason: 3, desc: 'All production x1.5 per level. Season 4 or later.' },
+  // ---- HEARTWOOD (mechanic upgrades; the mechanic itself unlocks free at the Turn) ----
+  { id: 'hw_wind', limb: 'heartwood', name: 'Tailwind', glyph: '🍂', baseCost: 1, costGrowth: G, maxLevel: 1, effect: { target: 'wind_every', op: 'mult', value: 1.333 }, mechanic: 'wind', requiresSeason: 1, desc: 'Gusts every 90 s instead of 120; Windmill cap 12.' },
+  { id: 'hw_frost', limb: 'heartwood', name: 'Deep Freeze', glyph: '❄️', baseCost: 1, costGrowth: G, maxLevel: 1, effect: { target: 'cellar_hours', op: 'add', value: 24 }, mechanic: 'frost', requiresSeason: 2, desc: 'Frost Cellar +24 h; thaw x2 → x3.' },
+  { id: 'hw_bloom', limb: 'heartwood', name: 'Long Bloom', glyph: '🌸', baseCost: 1, costGrowth: G, maxLevel: 1, effect: { target: 'bloom_seconds', op: 'add', value: 8 }, mechanic: 'bloom', requiresSeason: 3, desc: 'Bloom x4 lasts 20 s instead of 12.' },
+  { id: 'hw_storm', limb: 'heartwood', name: 'Conductor', glyph: '🌩️', baseCost: 1, costGrowth: G, maxLevel: 1, effect: { target: 'rod_charges', op: 'add', value: 3 }, mechanic: 'storm', requiresSeason: 4, desc: 'The Lightning Rod holds 8 charges.' },
+  { id: 'hw_caravan', limb: 'heartwood', name: 'Trade Routes', glyph: '🐪', baseCost: 1, costGrowth: G, maxLevel: 1, effect: { target: 'caravan_offers', op: 'add', value: 1 }, mechanic: 'caravan', requiresSeason: 5, desc: '4 offers per caravan.' },
+  { id: 'hw_steward', limb: 'heartwood', name: 'Head Steward', glyph: '🧑‍🌾', baseCost: 2, costGrowth: G, maxLevel: 1, mechanic: 'stewards', requiresSeason: 6, desc: 'Stewards also tune feed dials. (Stewards arrive in a later update.)' },
+  { id: 'hw_chart', limb: 'heartwood', name: 'Astrolabe', glyph: '🔭', baseCost: 2, costGrowth: G, maxLevel: 1, mechanic: 'charts', requiresSeason: 7, desc: 'Choose 2 constellations per Season. (Star Charts arrive in a later update.)' },
+  { id: 'hw_exped', limb: 'heartwood', name: 'Far Roads', glyph: '🧭', baseCost: 2, costGrowth: G, maxLevel: 1, mechanic: 'expeditions', requiresSeason: 8, desc: '4 Folk per expedition. (Expeditions arrive in a later update.)' },
+]
+
+export const mechanics: MechanicDef[] = [
+  { id: 'first_ring', name: 'The First Ring', glyph: '🌱', atTurn: 0, seasonName: 'Spring of the First Ring', implemented: true,
+    palette: { leaf: '#5aa653', bark: '#6b4a2e', accent: '#ffb547', particle: '#cfe8b0', particleGlyph: '🍃' }, annex: 'apiary',
+    desc: 'Default green. The Apiary, Kite Yard and Hearth Annex are available from the start.' },
+  { id: 'wind', name: 'Wind', glyph: '🍂', atTurn: 1, seasonName: 'Autumn', implemented: true, annex: 'windmill', medal: 'tr_autumn',
+    palette: { leaf: '#e0702a', bark: '#5a3a22', accent: '#f2a541', particle: '#d9772b', particleGlyph: '🍂' },
+    desc: 'A gust every 120 s ± 40% blows 12 leaves across for 8 s; each tapped leaf pays 10 s of total income. The Windmill gives +8% lodge output per level and auto-catches one leaf per level.',
+    introGoals: [
+      { id: 'wind_catch', name: 'Catch 5 gust leaves', cond: { kind: 'gusts', min: 1 }, reward: { fireflies: 15 }, tab: 'grow', target: 'trunk' },
+      { id: 'wind_mill', name: 'Build the Windmill', cond: { kind: 'annex', id: 'windmill' }, reward: { fireflies: 20 }, tab: 'grow', target: 'annex:windmill' },
+    ] },
+  { id: 'frost', name: 'Frost', glyph: '❄️', atTurn: 2, seasonName: 'Winter', implemented: true, annex: 'frost_cellar', medal: 'tr_winter',
+    palette: { leaf: '#cfe6f2', bark: '#4a4f5c', accent: '#8fd3ff', particle: '#ffffff', particleGlyph: '❄️' },
+    desc: 'The Frost Cellar stores offline production beyond the cap (+24 h) as frozen bundles; 10 taps thaw at x2, or it auto-thaws at x1 after 10 min. Snowfall every 5 min for 30 s: all crafting x2.',
+    introGoals: [
+      { id: 'frost_cellar', name: 'Build the Frost Cellar', cond: { kind: 'annex', id: 'frost_cellar' }, reward: { fireflies: 20 }, tab: 'grow', target: 'annex:frost_cellar' },
+      { id: 'frost_thaw', name: 'Thaw a frozen bundle', cond: { kind: 'thaws', min: 1 }, reward: { fireflies: 15 }, tab: 'grow', target: 'trunk' },
+    ] },
+  { id: 'bloom', name: 'Bloom', glyph: '🌸', atTurn: 3, seasonName: 'Spring', implemented: true, annex: 'grove', medal: 'tr_spring',
+    palette: { leaf: '#7fcf6a', bark: '#6b4a2e', accent: '#ffb7d5', particle: '#ffc6e0', particleGlyph: '🌸' },
+    desc: 'A blossom wave every 180 s climbs the tree one bough per 4 s; each lodge and workshop it passes works x4 for 12 s. Tap the front to push it up a bough. The Grove adds waves and doubles Beekeepers.',
+    introGoals: [
+      { id: 'bloom_ride', name: 'Ride a Bloom wave to the Crown', cond: { kind: 'blooms', min: 1 }, reward: { fireflies: 15 }, tab: 'grow', target: 'trunk' },
+      { id: 'bloom_grove', name: 'Build the Grove', cond: { kind: 'annex', id: 'grove' }, reward: { fireflies: 20 }, tab: 'grow', target: 'annex:grove' },
+    ] },
+  { id: 'storm', name: 'Storm', glyph: '⚡', atTurn: 4, seasonName: 'Summer', implemented: true, annex: 'lightning_rod', medal: 'tr_summer',
+    palette: { leaf: '#1f6b3a', bark: '#3f2a1a', accent: '#ffe45c', particle: '#fff59d', particleGlyph: '⚡' },
+    desc: 'Storms every 5 min for 40 s; a strike every 8 s charges the Lightning Rod (max 5). Tap to discharge: each charge completes 60 s of all Foreman crafting instantly. Auto-discharges at 50% two minutes after full.',
+    introGoals: [
+      { id: 'storm_rod', name: 'Build the Lightning Rod', cond: { kind: 'annex', id: 'lightning_rod' }, reward: { fireflies: 20 }, tab: 'grow', target: 'annex:lightning_rod' },
+      { id: 'storm_discharge', name: 'Discharge the Lightning Rod', cond: { kind: 'discharges', min: 1 }, reward: { fireflies: 15 }, tab: 'grow', target: 'trunk' },
+    ] },
+  { id: 'caravan', name: 'Caravans', glyph: '🐪', atTurn: 5, seasonName: 'Autumn II', implemented: true, annex: 'caravan_post', medal: 'crown_chime',
+    palette: { leaf: '#c8552a', bark: '#4f2f1c', accent: '#ffb86b', particle: '#e08a3a', particleGlyph: '🍁' },
+    desc: 'A caravan docks at the stump every 30 min of play and on every return, for 5 min, with 3 offers: goods for Fireflies, rare inputs or a weekly cosmetic.',
+    introGoals: [
+      { id: 'caravan_post', name: 'Build the Caravan Post', cond: { kind: 'annex', id: 'caravan_post' }, reward: { fireflies: 20 }, tab: 'grow', target: 'annex:caravan_post' },
+      { id: 'caravan_trade', name: 'Trade with the Caravan', cond: { kind: 'trades', min: 1 }, reward: { fireflies: 15 }, tab: 'grow', target: 'caravan' },
+    ] },
+  { id: 'stewards', name: 'Stewards', glyph: '🧑‍🌾', atTurn: 6, seasonName: 'Winter II', implemented: false, medal: 'hat_snail',
+    palette: { leaf: '#b9d3e6', bark: '#3d4250', accent: '#a8e0ff', particle: '#ffffff', particleGlyph: '❄️' },
+    desc: 'A Steward per bough auto-buys the cheapest lodge or crew level every 30 s. Next update.' },
+  { id: 'charts', name: 'Star Charts', glyph: '🔭', atTurn: 7, seasonName: 'Spring II', implemented: false, medal: 'frame_astrolabe',
+    palette: { leaf: '#9be08a', bark: '#5c3f27', accent: '#ffc9e3', particle: '#ffd6ea', particleGlyph: '🌸' },
+    desc: 'Pick one constellation per Season (x2 raw / x2 crafting / x2 offline / +50% taps) at the Starbough altar. Next update.' },
+  { id: 'expeditions', name: 'Expeditions', glyph: '🧭', atTurn: 8, seasonName: 'Summer II', implemented: false, medal: 'title_explorer',
+    palette: { leaf: '#2e7d46', bark: '#3a2617', accent: '#fff07a', particle: '#fff8b0', particleGlyph: '⚡' },
+    desc: 'Send 3 Folk off-tree for 2/4/8 h; they return with a Star Chest. Next update.' },
+  { id: 'greatring', name: 'Great Ring', glyph: '🌀', atTurn: 10, seasonName: 'The Great Ring', implemented: true, medal: 'frame_greatring',
+    palette: { leaf: '#ffd27a', bark: '#5a3a22', accent: '#ffe9c2', particle: '#fff3d1', particleGlyph: '✨' },
+    desc: 'Ten Seasons turned: a permanent tree-wide skin choice, the Great Ring frame and, at Season 20, the Elder Crown.' },
+]

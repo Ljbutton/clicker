@@ -27,7 +27,7 @@ export function litBoughs(ci: ContentIndex, s: GameState, fx?: EffectTable): num
  * Fold every multiplier source into one table: Runes, Ring passive, Ring Tree, lit boughs, annex levels,
  * tokens, Resonance, Rally, droplet, Dawn Rush, season events (Snowfall, Storm), Bloom (per bough).
  */
-export function buildEffects(ci: ContentIndex, s: GameState, now: number): EffectTable {
+export function buildEffects(ci: ContentIndex, s: GameState, now: number, steady = false): EffectTable {
   const t = emptyEffects()
   for (const [id, tier] of Object.entries(s.runes)) { const r = ci.runes.get(id); if (r && tier > 0) apply(t, r.effect, tier) }
   for (const [id, lvl] of Object.entries(s.prestige.nodes)) { const n = ci.prestigeNodes.get(id); if (n?.effect && lvl > 0) apply(t, n.effect, lvl) }
@@ -38,9 +38,15 @@ export function buildEffects(ci: ContentIndex, s: GameState, now: number): Effec
   const lit = litBoughs(ci, s, t)
   if (lit > 0) apply(t, { target: 'all_production', op: 'mult', value: 1 + BALANCE.lanterns.litBonus * lit }, 1)
   // temporary
-  for (const tok of s.tokens) if (tok.until > now) apply(t, { target: 'all_production', op: 'mult', value: tok.value }, 1)
-  if (s.resonanceUntil > now) apply(t, { target: 'all_production', op: 'mult', value: BALANCE.tap.resonanceMult * mult(t, 'resonance_mult') }, 1)
-  if (s.rally.holding && s.rally.stamina > 0 && now - s.rally.since >= BALANCE.rally.holdMs / 1000) apply(t, { target: 'all_production', op: 'mult', value: BALANCE.rally.mult }, 1)
+  // x2 tokens stack in duration, not value: only the strongest active token applies
+  let tokMax = 1
+  for (const tok of s.tokens) if (tok.until > now && tok.value > tokMax) tokMax = tok.value
+  if (steady) return t
+  // temporary boosts apply to Folk and crews (raws + crafting), never to strikes (strikes are pegged to idle income)
+  const boost = (v: number) => { apply(t, { target: 'raw_production', op: 'mult', value: v }, 1); apply(t, { target: 'craft_throughput', op: 'mult', value: v }, 1) }
+  if (tokMax > 1) boost(tokMax)
+  if (s.resonanceUntil > now) boost(BALANCE.tap.resonanceMult * mult(t, 'resonance_mult'))
+  if (s.rally.holding && s.rally.stamina > 0 && now - s.rally.since >= BALANCE.rally.holdMs / 1000) boost(BALANCE.rally.mult)
   if (s.dropletBoostUntil > now) apply(t, { target: 'craft_throughput', op: 'mult', value: BALANCE.tap.dropletBoostMult }, 1)
   if (s.dawnRushUntil > now) apply(t, { target: 'tap', op: 'mult', value: BALANCE.tap.dawnRushMult }, 1)
   if (s.frost.snowUntil > now) apply(t, { target: 'craft_throughput', op: 'mult', value: BALANCE.frost.snowMult }, 1)

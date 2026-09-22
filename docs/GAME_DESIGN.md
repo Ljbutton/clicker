@@ -570,9 +570,9 @@ Mechanic modules are data rows `{id, atTurn, implemented, palette, annex, medal}
 ### 12.1 Chests
 | Chest | Contents | Opening |
 |---|---|---|
-| Bark Chest 🪵 | 120 s of current income (Sap-weighted raw bundle), 10-25 Fireflies, 10% chance of a common cosmetic | drops onto the canvas, 3 taps to crack (haptic tick each), contents fly to their counters with number roll-ups |
-| Amber Chest 🟠 | 15 min of income, 50-100 Fireflies, a guaranteed uncommon cosmetic (or a dye if all owned), one x2 token (10 min) | 3 taps, light leaks between cracks |
-| Star Chest ⭐ | 60 min of income, 150 Fireflies, a guaranteed rare cosmetic (dye set when exhausted), one x2 token | 3 taps, starburst |
+| Bark Chest 🪵 | 60 s of steady income (no Resonance/token boosts), 10-25 Fireflies, 10% chance of a common cosmetic | drops onto the canvas, 3 taps to crack (haptic tick each), contents fly to their counters with number roll-ups |
+| Amber Chest 🟠 | 4 min of steady income, 50-100 Fireflies, a guaranteed uncommon cosmetic (or a dye if all owned), one x2 token (10 min) | 3 taps, light leaks between cracks |
+| Star Chest ⭐ | 15 min of steady income, 150 Fireflies, a guaranteed rare cosmetic (dye set when exhausted), one x2 token | 3 taps, starburst |
 | Season Chest 🌀 | 10 Glimmer, 100 Fireflies, Season Medal, x2 token (20 min) for the new Season | opens inside the Turn ceremony |
 | Return Chest 🌙 | Bark Chest after > 2 h away, Amber Chest after > 12 h | on the return board |
 Chests never expire and never stack beyond 5 unopened (the 6th auto-opens).
@@ -585,7 +585,7 @@ Chests never expire and never stack beyond 5 unopened (the 6th auto-opens).
 | m_reso_10 / 100 / 1k | Resonances | 20 / 60 / 200 Ff; 100: Thrum meter skin **Vine** | small |
 | m_grow_10 / 50 / 100 / 250 / 500 | grows this Season | Bark Chest / Amber / Amber / Star / Star | medium |
 | m_height_100m … every line | first time at each height line | 20 Glimmer (first time per bough), sky theme unlock per bough (§14) | **big**: full-screen sky crossfade 1.5 s, species fly in, title card |
-| m_bough_N | Ritual performed (first time ever) | Amber Chest, Landmark | big: leaf explosion, camera ride |
+| m_bough_N | Ritual performed (first time ever) | 20 Glimmer (+ bough cosmetic where listed); the Amber Chest comes from the lane's Ritual goal | big: leaf explosion, camera ride |
 | m_lodge_25 / 50 / 100 / 200 (per lodge) | lodge milestones | 10 / 15 / 25 / 50 Ff; first 50 ever: hat **Acorn Cap**; first 100: hat **Mushroom Cap**; first 200: **Tiny Crown** | medium: hut grows, Folk cheer (bounce + leaf confetti), chime |
 | m_crew_25 / 50 / 100 (per workshop) | crew milestones | 10 / 15 / 25 Ff; first 100 ever: roof **Slate Tile** | medium |
 | m_craft_tier1..4_1k | 1,000 crafts of a tier | 25 / 50 / 100 / 200 Ff | small |
@@ -599,7 +599,7 @@ Chests never expire and never stack beyond 5 unopened (the 6th auto-opens).
 | m_streak_7 | 7 calendar days with a return | companion **Ash Cat**; no punishment for a miss, the lanterns on the stump door just go out | medium |
 | m_masterwork_50 | Masterworks | 40 Ff; roof **Moss-Grown** | small |
 | m_kite_1 | first kite crafted | title **Kite-flyer** | small |
-Every milestone also drops one **x2 token** (10 min, all production) when its celebration is medium or big, so each milestone accelerates the next unlock.
+Every milestone also drops one **x2 token** (10 min, Folk and crews; tokens extend each other's duration and never multiply; strikes are pegged to the steady idle income so they never double-dip) when its celebration is big, so each milestone accelerates the next unlock. Chest and set-piece income is measured at the *steady* rate (no Resonance, Rally or token boost), so a chest opened during a Resonance is not five times bigger. (Retuned from the first draft after the engine sim: 120 s / 15 min / 60 min compounded into lodges and blew the first hour up ~10x.)
 
 ### 12.3 Celebration presentation
 - **GROW:** trunk stretch with ease-out-back, leaves unfurl, camera push, light haptic, 3 grass-note chime.

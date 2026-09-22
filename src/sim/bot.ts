@@ -57,6 +57,7 @@ export function runBot(content: Content, opts: BotOptions): BotResult {
   game.events.on('discovery', (e) => { if (e.success) log('discover', game.ci.recipes.get(e.recipeId)?.name ?? e.recipeId) })
   game.events.on('turn', (e) => log('turn', `#${e.count} +${e.gained} Rings → ${e.seasonName}`))
   game.events.on('milestone', (e) => { if (e.def.celebration === 'big') log('milestone', e.def.name) })
+  game.events.on('chest', (e) => { if (opts.verbose) log('chest', `${e.tier} (${e.source})`, `+${fmt(e.got.resources?.sap ?? 0)} sap ${e.got.fireflies ? '+' + e.got.fireflies + ' ff' : ''} ${e.got.cosmetic ?? ''}`) })
   game.events.on('offline', (b) => log('offline', `away ${fmtDuration(b.summary.elapsed)}`, `+${fmt(b.summary.gained.sap ?? 0)} sap`))
   game.events.on('season', (e) => { if (e.kind === 'gust' || e.kind === 'bloom_start' || e.kind === 'storm_start' || e.kind === 'caravan_dock') log('season', e.kind) })
 

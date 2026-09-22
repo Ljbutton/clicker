@@ -17,10 +17,17 @@ export function applyReward(ci: ContentIndex, s: GameState, r: Reward, now: numb
   if (r.fireflies) { const n = Math.round(r.fireflies * scale); s.fireflies += n; s.firefliesLifetime += n; out.fireflies = n }
   if (r.glimmer) { s.glimmer += r.glimmer; s.glimmerEarned += r.glimmer; out.glimmer = r.glimmer }
   if (r.cosmetic && ci.cosmetics.has(r.cosmetic) && !s.cosmetics.owned.includes(r.cosmetic)) { s.cosmetics.owned.push(r.cosmetic); out.cosmetic = r.cosmetic }
-  if (r.token) { s.tokens.push({ value: r.token.value, until: now + r.token.seconds }); out.token = r.token }
+  if (r.token) { addToken(s, r.token.value, r.token.seconds, now); out.token = r.token }
   if (r.landmark && !s.landmarks.includes(r.landmark)) { s.landmarks.push(r.landmark); out.landmark = r.landmark }
   if (r.chest) { pushChest(s, r.chest, 'Reward', now); out.chest = r.chest }
   return out
+}
+
+/** Tokens of the same value extend each other's duration (they never multiply). */
+export function addToken(s: GameState, value: number, seconds: number, now: number) {
+  const same = s.tokens.find((t) => t.value === value)
+  if (same) same.until = Math.max(same.until, now) + seconds
+  else s.tokens.push({ value, until: now + seconds })
 }
 
 export function pushChest(s: GameState, tier: ChestTier, source: string, now: number) {
@@ -70,7 +77,7 @@ export function tickMilestones(ci: ContentIndex, s: GameState, now: number, base
     if (!checkCondition(ci, s, m.cond, ringsNow)) continue
     s.milestones.push(m.id)
     const got = applyReward(ci, s, m.reward, now, baseRate)
-    if (m.celebration !== 'small' && !m.reward.token) { s.tokens.push({ value: 2, until: now + 600 }); got.token = { value: 2, seconds: 600 } }
+    if (m.celebration === 'big' && !m.reward.token) { addToken(s, 2, 600, now); got.token = { value: 2, seconds: 600 } }
     out.push({ def: m, got })
   }
   // cap pending chests: the 6th auto-opens (handled by caller since it needs rng)

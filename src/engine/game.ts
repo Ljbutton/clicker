@@ -74,6 +74,8 @@ export class Game {
   /** 10 s EMA of net rates (gross − Foreman draw), taps excluded. */
   net: Record<string, number> = {}
   heartwoodRate = 0
+  /** Sapper output per second without temporary boosts; scales chests and set-piece rewards. */
+  steadyIdleSap = 0
   private hwLast = 0
   starved: Record<string, string | null> = {}
   pinned: Goal | null = null
@@ -183,7 +185,10 @@ export class Game {
 
   /* ---------- simulation ---------- */
   private refresh(force = false) {
-    if (this.fxDirty || force) { this.fx = buildEffects(this.ci, this.s, this.now); this.fxDirty = false }
+    if (this.fxDirty || force) {
+      this.fx = buildEffects(this.ci, this.s, this.now); this.fxDirty = false
+      this.steadyIdleSap = lodgeRates(this.ci, this.s, buildEffects(this.ci, this.s, this.now, true))[this.base] ?? 0
+    }
     this.gross = lodgeRates(this.ci, this.s, this.fx)
   }
   private dirty() { this.fxDirty = true; this.refresh() }
@@ -207,7 +212,7 @@ export class Game {
     // set-pieces and seasons
     const sp = tickSetPiece(this.ci, s, this.rng, this.now)
     if (sp) this.events.emit('setpiece', { kind: sp, id: s.setPiece?.id })
-    for (const ev of tickSeasons(this.ci, s, this.fx, this.rng, this.now, this.idleSap)) { this.events.emit('season', ev); this.fxDirty = true }
+    for (const ev of tickSeasons(this.ci, s, this.fx, this.rng, this.now, this.steadyIdleSap)) { this.events.emit('season', ev); this.fxDirty = true }
     // once per second: lanes, milestones, compass, night, wishes
     this.secondAcc += dt
     if (this.secondAcc >= 1) {
@@ -226,7 +231,7 @@ export class Game {
   }
 
   private checkLane() {
-    for (const done of tickWaystone(this.ci, this.s, this.now, this.idleSap)) {
+    for (const done of tickWaystone(this.ci, this.s, this.now, this.steadyIdleSap)) {
       if (done.got?.chest) this.events.emit('chestDropped', { tier: done.got.chest, source: done.goal.name })
       if (done.got?.cosmetic) this.events.emit('cosmetic', { id: done.got.cosmetic, how: 'earned' })
       if (done.got?.token) this.fxDirty = true
@@ -234,7 +239,7 @@ export class Game {
     }
   }
   private checkMilestones() {
-    for (const m of tickMilestones(this.ci, this.s, this.now, this.idleSap, this.rings)) {
+    for (const m of tickMilestones(this.ci, this.s, this.now, this.steadyIdleSap, this.rings)) {
       if (m.got.cosmetic) this.events.emit('cosmetic', { id: m.got.cosmetic, how: 'earned' })
       if (m.got.chest) this.events.emit('chestDropped', { tier: m.got.chest, source: m.def.name })
       this.fxDirty = true
@@ -280,7 +285,7 @@ export class Game {
 
   /* ---------- tap layer ---------- */
   strike(x?: number, y?: number): StrikeResult {
-    const r = strike(this.ci, this.s, this.fx, this.rng, this.now, this.idleSap)
+    const r = strike(this.ci, this.s, this.fx, this.rng, this.now, this.steadyIdleSap)
     if (r.resonance) { this.dirty(); this.events.emit('resonance', { auto: false }) }
     if (r.bloom) { pushChest(this.s, 'bark', 'Bloom', this.now); this.events.emit('bloom', { strikes: this.s.strikes }); this.events.emit('chestDropped', { tier: 'bark', source: 'Bloom' }) }
     if (r.droplet) this.events.emit('droplet', { caught: false })
@@ -300,7 +305,7 @@ export class Game {
     return r
   }
   tapSetPiece() {
-    const r = tapSetPiece(this.ci, this.s, this.fx, this.rng, this.now, this.idleSap)
+    const r = tapSetPiece(this.ci, this.s, this.fx, this.rng, this.now, this.steadyIdleSap)
     if (r.done) { if (r.got?.chest) this.events.emit('chestDropped', { tier: r.got.chest, source: r.def?.name ?? 'Set-piece' }); this.events.emit('setpiece', { kind: 'done', id: r.def?.id, got: r.got, paid: r.paid }) }
     else if (r.def) this.events.emit('setpiece', { kind: 'progress', id: r.def.id, progress: r.progress, paid: r.paid })
     return r
@@ -313,7 +318,7 @@ export class Game {
   }
   tapFrozen() { const r = tapFrozen(this.ci, this.s, this.fx, this.idleSap); if (r.done) this.events.emit('thaw', { sap: r.sap ?? 0, taps: r.taps }); return r }
   dischargeRod() { const n = discharge(this.ci, this.s, this.fx, 1); return n }
-  trade(offerId: string) { const g = tradeCaravan(this.ci, this.s, offerId, this.now, this.idleSap); if (g?.cosmetic) this.events.emit('cosmetic', { id: g.cosmetic, how: 'earned' }); return g }
+  trade(offerId: string) { const g = tradeCaravan(this.ci, this.s, offerId, this.now, this.steadyIdleSap); if (g?.cosmetic) this.events.emit('cosmetic', { id: g.cosmetic, how: 'earned' }); return g }
   tapBloomFront() { if (this.s.bloom.active) { this.s.bloom.startedAt -= BALANCE.bloom.perBough; this.dirty(); return true } return false }
 
   /* ---------- growth ---------- */
@@ -386,7 +391,7 @@ export class Game {
 
   /* ---------- chests, prestige, codex ---------- */
   openChest(id: string) {
-    const r = openChest(this.ci, this.s, this.rng, id, this.now, this.idleSap)
+    const r = openChest(this.ci, this.s, this.rng, id, this.now, this.steadyIdleSap)
     if (!r) return null
     if (r.got.token) this.dirty()
     if (r.got.cosmetic) this.events.emit('cosmetic', { id: r.got.cosmetic, how: 'earned' })

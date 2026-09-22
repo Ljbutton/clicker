@@ -35,7 +35,8 @@ export function critChance(fx: EffectTable): number {
 export function strikeValue(s: GameState, fx: EffectTable, idleSap: number): number {
   const t = BALANCE.tap
   const peg = t.peg * mult(fx, 'tap_peg')
-  return t.base * Math.max(1, peg * idleSap) * thrumMult(thrumUnlocked(s) ? s.thrum : 0) * mult(fx, 'tap') * mult(fx, 'all_production')
+  // pegged to idle income (which already carries every production multiplier), so only tap-specific multipliers apply here
+  return t.base * Math.max(1, peg * idleSap) * thrumMult(thrumUnlocked(s) ? s.thrum : 0) * mult(fx, 'tap')
 }
 
 /** Process a Strike on the trunk. `idleSap` = current Sapper-lodge output per second. */

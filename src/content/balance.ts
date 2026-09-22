@@ -46,9 +46,10 @@ export const BALANCE = {
   chests: {
     openTaps: 3,
     maxPending: 5,
-    bark: { incomeSeconds: 120, fireflies: [10, 25], cosmeticChance: 0.1 },
-    amber: { incomeSeconds: 900, fireflies: [50, 100], token: { value: 2, seconds: 600 } },
-    star: { incomeSeconds: 3600, fireflies: [150, 150], token: { value: 2, seconds: 600 } },
+    /** Income-seconds are measured at the steady rate (no Resonance/Rally/token boosts). */
+    bark: { incomeSeconds: 60, fireflies: [10, 25], cosmeticChance: 0.1 },
+    amber: { incomeSeconds: 240, fireflies: [50, 100], token: { value: 2, seconds: 600 } },
+    star: { incomeSeconds: 900, fireflies: [150, 150], token: { value: 2, seconds: 600 } },
     season: { glimmer: 10, fireflies: 100, token: { value: 2, seconds: 1200 } },
   },
   daily: { glimmer: 3, fireflies: 15 },
