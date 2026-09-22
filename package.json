@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "sim": "tsx src/sim/run.ts",
     "smoke": "node scripts/smoke.mjs",
+    "playthrough": "node scripts/playthrough.mjs",
     "cap:sync": "cap sync"
   },
   "dependencies": {
