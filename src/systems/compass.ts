@@ -169,6 +169,14 @@ export function laneGoal(ci: ContentIndex, s: GameState, fx: EffectTable, net: R
   if (c.kind === 'setpiece' || c.kind === 'setpieces' || c.kind === 'gusts') goal.advice = { text: 'Wait for the next set-piece to cross the tree' }
   else if (c.kind === 'grows') { const need = growsToHeight(s, fx, s.height + 0.01); void need; goal.advice = { text: (s.res[base] ?? 0) >= 10 ? 'Press GROW' : 'Strike the trunk for Sap, then press GROW' }; goal.cost = { [base]: 10 }; goal.ready = (s.res[base] ?? 0) >= 10; goal.bottleneck = { id: base, have: s.res[base] ?? 0, need: 10 } }
   else if (c.kind === 'resonances') goal.advice = { text: 'Strike quickly to fill the Thrum ring' }
+  else if (c.kind === 'expeditions') { goal.advice = { text: 'Send Folk from the Trailhead (Grow tab)' }; goal.glyph = '🧭'; goal.tab = 'grow'; goal.target = 'expedition' }
+  else if (c.kind === 'charts') { goal.advice = { text: 'Choose a constellation on the Rings tab' }; goal.glyph = '🔭'; goal.tab = 'rings'; goal.target = 'charts' }
+  else if (c.kind === 'stewardBuys') { goal.advice = { text: 'Keep the Stewards switched on' }; goal.glyph = '🧑‍🌾'; goal.target = 'stewards' }
+  else if (c.kind === 'thaws') { goal.advice = { text: 'Tap the frozen bundle after a long night' }; goal.glyph = '🧊' }
+  else if (c.kind === 'trades') { goal.advice = { text: 'Trade when the caravan docks' }; goal.glyph = '🐫' }
+  else if (c.kind === 'discharges') { goal.advice = { text: 'Tap the Lightning Rod during a storm' }; goal.glyph = '🌩️' }
+  else if (c.kind === 'blooms') { goal.advice = { text: 'Wait for the next blossom wave' }; goal.glyph = '🌸' }
+  else if (c.kind === 'kites') { goal.advice = { text: 'Craft a kite at the Kite Yard (More tab)' }; goal.glyph = '🪁'; goal.tab = 'wardrobe' }
   else goal.advice = { text: 'Strike the trunk' }
   return goal
 }
