@@ -55,6 +55,7 @@ interface Pointer { id: number; x0: number; y0: number; x: number; y: number; t0
 
 const HUT_W = 34, HUT_H = 24
 const walkerPos = { x: 0, y: 0, carrying: false, flip: false }
+let popSlot = 0
 
 export function createScene(canvas: HTMLCanvasElement, game: Game, opts: SceneOptions = {}): SceneHandle {
   const ctx = canvas.getContext('2d', { alpha: false }) ?? canvas.getContext('2d')
@@ -117,10 +118,11 @@ export function createScene(canvas: HTMLCanvasElement, game: Game, opts: SceneOp
 
   /* ---------- palette & cosmetics ---------- */
   function refreshCosmetics() {
-    const key = cosmeticsKey(game.s.cosmetics.equipped, previewId)
+    const key = cosmeticsKey(game.s.cosmetics.equipped, previewId) + '@' + game.s.cosmetics.dyeHue
     if (key === cosKey) return
     cosKey = key
-    cos = resolveCosmetics((id) => ci.cosmetics.get(id), game.s.cosmetics.equipped, previewId)
+    const lookup = (id: string) => { const c = ci.cosmetics.get(id); return c && id === 'lc_dye' ? { ...c, params: { ...c.params, color: game.s.cosmetics.dyeHue } } : c }
+    cos = resolveCosmetics(lookup, game.s.cosmetics.equipped, previewId)
   }
   function refreshPalette() {
     const rows = ci.raw.mechanics
@@ -293,7 +295,8 @@ export function createScene(canvas: HTMLCanvasElement, game: Game, opts: SceneOp
     ripples.push({ x, y: wy, life: 0.5 })
     if (ripples.length > 12) ripples.shift()
     tapBurst(x, wy, r.crit)
-    ps.text(x + (Math.random() - 0.5) * 20, wy - 16, `+${fmt(r.value)}`, { color: r.crit ? '#ffd166' : '#ffffff', size: r.crit ? 24 : 16, life: r.crit ? 1.3 : 0.9 })
+    popSlot = (popSlot + 1) % 5
+    ps.text(x + (popSlot - 2) * 22 + (Math.random() - 0.5) * 8, wy - 16 - (popSlot % 2) * 14, `+${fmt(r.value)}`, { color: r.crit ? '#ffd166' : '#ffffff', size: r.crit ? 24 : 15, life: r.crit ? 1.3 : 0.8, vy: -110 })
     if (r.drop) ps.text(x + 24, wy - 4, `+${r.drop.amount} ${ci.resources.get(r.drop.id)?.glyph ?? ''}`, { color: '#c8f0ff', size: 13, life: 1 })
     if (r.crit) { edgeGlow = 1; haptic('heavy'); doShake(3) } else haptic('light')
     companionHop = 1

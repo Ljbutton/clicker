@@ -132,7 +132,7 @@ export interface AnnexDef {
   /** Effect per level. */
   perLevel?: Effect[]
   /** Special behaviour handled by systems. */
-  special?: 'apiary' | 'kite_yard' | 'hearth' | 'windmill' | 'frost_cellar' | 'grove' | 'lightning_rod' | 'caravan_post' | 'owl_nest'
+  special?: 'apiary' | 'kite_yard' | 'hearth' | 'windmill' | 'frost_cellar' | 'grove' | 'lightning_rod' | 'caravan_post' | 'owl_nest' | 'trailhead' | 'altar'
   desc: string
 }
 
@@ -185,6 +185,10 @@ export type Condition =
   | { kind: 'discharges'; min: number }
   | { kind: 'trades'; min: number }
   | { kind: 'blooms'; min: number }
+  | { kind: 'expeditions'; min: number }
+  | { kind: 'charts'; min: number }
+  | { kind: 'stewardBuys'; min: number }
+  | { kind: 'kites_returned'; min: number }
 
 export type ChestTier = 'bark' | 'amber' | 'star' | 'season'
 

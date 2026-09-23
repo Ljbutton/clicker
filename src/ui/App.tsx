@@ -57,7 +57,7 @@ function TopBar() {
   return (
     <header class="topbar">
       <div class="top-row">
-        <div class="height" onClick={() => (sheet.value = 'stats')}>
+        <div class="height" onClick={() => (sheet.value = 'ladder')}>
           <span class="height-glyph">{band.glyph}</span>
           <div>
             <div class="height-val num">{Math.floor(s.height)} m</div>

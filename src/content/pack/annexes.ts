@@ -22,4 +22,5 @@ export const annexes: AnnexDef[] = [
     desc: 'Autumn II (Caravans). A caravan docks at the stump every 30 minutes of play and on every return with three offers.' },
   { id: 'owl_nest', name: 'Owl Nest', glyph: '🦉', cost: { cord: 30 }, unlock: { kind: 'always' }, special: 'owl_nest',
     desc: 'A nest for the owl egg found at Landmark #30. Purely for company: the owl hatches after a Season and wanders the tree.' },
+  { id: 'trailhead', name: 'Trailhead', glyph: '🧭', cost: { lantern: 50, cord: 100 }, unlock: { kind: 'season', min: 8 }, special: 'trailhead', desc: 'Where expeditions set out. Send Folk off-tree for 2, 4 or 8 hours; they return with a chest.' },
 ]

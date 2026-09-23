@@ -17,7 +17,8 @@ export function heartwoodFor(rings: number): number {
   return p.K * Math.pow(10, Math.pow(rings / p.mult, 1 / p.exponent))
 }
 export function ringsNow(s: GameState): number { return ringsFor(s.heartwood) }
-export function canTurn(s: GameState): boolean { return ringsNow(s) >= BALANCE.prestige.minRings }
+export function canTurn(s: GameState): boolean { return ringsNow(s) >= BALANCE.prestige.minRings && s.runTime >= BALANCE.prestige.minSeasonSeconds }
+export function turnOpensIn(s: GameState): number { return Math.max(0, BALANCE.prestige.minSeasonSeconds - s.runTime) }
 
 export function nodeLevel(s: GameState, id: string) { return s.prestige.nodes[id] ?? 0 }
 export function nodeCost(ci: ContentIndex, s: GameState, id: string): number {
@@ -54,7 +55,7 @@ export function hasMechanic(ci: ContentIndex, s: GameState, id: string): boolean
 /** Turn the Season: pay Rings, reset the run, apply persistent starting bonuses. Returns Rings gained (0 if not allowed). */
 export function turnSeason(ci: ContentIndex, s: GameState, now: number): number {
   const gained = ringsNow(s)
-  if (gained < BALANCE.prestige.minRings) return 0
+  if (gained < BALANCE.prestige.minRings || s.runTime < BALANCE.prestige.minSeasonSeconds) return 0
   s.prestige.rings += gained
   s.prestige.lifetimeRings += gained
   s.prestige.count++
@@ -67,6 +68,7 @@ export function turnSeason(ci: ContentIndex, s: GameState, now: number): number 
   void prevLimbs
   Object.assign(s, seasonDefaults(now))
   s.feed = feed
+  for (const k of Object.keys(s.flags)) if (k.startsWith('lane_active:') || k.startsWith('auto_off:')) delete s.flags[k]
   s.runes = keptRunes
   // Head Start: +5 Sappers per level
   const hs = nodeLevel(s, 'roots_start')

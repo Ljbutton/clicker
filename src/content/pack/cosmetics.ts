@@ -100,9 +100,9 @@ export const cosmetics: CosmeticDef[] = [
   { id: 'crown_elder', category: 'crown', name: 'Elder Crown', glyph: '👑', desc: 'The crown of the Worldcrown.', earnedBy: 'm_season_20', params: { ornament: 'elder', color: '#ffd27a' } },
   { id: 'crown_flag', category: 'crown', name: 'Pennant', glyph: '🚩', desc: 'A long pennant streaming from the tip.', fireflyPrice: 150, params: { ornament: 'kite', color: '#4fd1c5' } },
   { id: 'crown_bell', category: 'crown', name: 'Tip Bell', glyph: '🔔', desc: 'A bronze bell at the very top.', fireflyPrice: 200, params: { ornament: 'chime', color: '#b87333' } },
-  { id: 'kite_carp', category: 'crown', name: 'Carp Kite', glyph: '🎏', desc: 'Crafted at the Kite Yard: 50 Cord + 20 Lacquer + 60 Fireflies.', earnedBy: 'Kite Yard', params: { ornament: 'kite', color: '#ff7043' } },
-  { id: 'kite_dragon', category: 'crown', name: 'Dragon Kite', glyph: '🐉', desc: 'Crafted at the Kite Yard: 50 Cord + 20 Lacquer + 120 Fireflies.', earnedBy: 'Kite Yard', params: { ornament: 'kite', color: '#2e8b57' } },
-  { id: 'kite_guild', category: 'crown', name: 'Guild Banner', glyph: '🏴', desc: 'Crafted at the Kite Yard with one of 24 procedural emblems.', earnedBy: 'Kite Yard', params: { ornament: 'kite', color: '#5b4a9a' } },
+  { id: 'kite_carp', category: 'crown', name: 'Carp Kite', glyph: '🎏', desc: 'Crafted at the Kite Yard: 50 Cord + 20 Lacquer + 60 Fireflies.', earnedBy: 'Kite Yard', craft: { cost: { cord: 50, lacquer: 20 }, fireflies: 60 }, params: { ornament: 'kite', color: '#ff7043' } },
+  { id: 'kite_dragon', category: 'crown', name: 'Dragon Kite', glyph: '🐉', desc: 'Crafted at the Kite Yard: 50 Cord + 20 Lacquer + 120 Fireflies.', earnedBy: 'Kite Yard', craft: { cost: { cord: 120, lacquer: 40 }, fireflies: 120 }, params: { ornament: 'kite', color: '#2e8b57' } },
+  { id: 'kite_guild', category: 'crown', name: 'Guild Banner', glyph: '🏴', desc: 'Crafted at the Kite Yard with one of 24 procedural emblems.', earnedBy: 'Kite Yard', craft: { cost: { cord: 200, lacquer: 60, beam: 50 }, fireflies: 150 }, params: { ornament: 'kite', color: '#5b4a9a' } },
   // ---- companion ----
   { id: 'pet_owl', category: 'companion', name: 'Owl', glyph: '🦉', desc: 'Hatched from the egg found at Landmark #30 after one Season.', earnedBy: 'm_season_1', params: { pet: 'owl', color: '#a58a6a' } },
   { id: 'pet_snail', category: 'companion', name: 'Snail', glyph: '🐌', desc: 'Slow, but always there.', fireflyPrice: 200, params: { pet: 'snail', color: '#c9a27a' } },

@@ -33,7 +33,16 @@ export function buildEffects(ci: ContentIndex, s: GameState, now: number, steady
   for (const [id, lvl] of Object.entries(s.prestige.nodes)) { const n = ci.prestigeNodes.get(id); if (n?.effect && lvl > 0) apply(t, n.effect, lvl) }
   for (const [id, lvl] of Object.entries(s.annexLevels)) { const a = ci.annexes.get(id); if (a?.perLevel && lvl > 0) for (const e of a.perLevel) apply(t, e, lvl) }
   // ring passive: +5% per lifetime ring, additive then multiplied
-  if (s.prestige.lifetimeRings > 0) apply(t, { target: 'all_production', op: 'mult', value: 1 + BALANCE.prestige.ringPassive * s.prestige.lifetimeRings }, 1)
+  if (s.prestige.lifetimeRings > 0) apply(t, { target: 'all_production', op: 'mult', value: 1 + BALANCE.prestige.ringPassive * Math.min(BALANCE.prestige.ringPassiveCap, s.prestige.lifetimeRings) }, 1)
+  // Star Charts (per Season) and Great Rings (every 10 Turns: x2 everything)
+  for (const c of s.charts) {
+    if (c === 'raw') apply(t, { target: 'raw_production', op: 'mult', value: 2 }, 1)
+    else if (c === 'craft') apply(t, { target: 'craft_throughput', op: 'mult', value: 2 }, 1)
+    else if (c === 'strikes') apply(t, { target: 'tap', op: 'mult', value: 1.5 }, 1)
+    else if (c === 'night') apply(t, { target: 'offline_rate_add', op: 'add', value: 0.5 }, 1)
+  }
+  const greatRings = Math.min(BALANCE.prestige.greatRingsMax, Math.floor(s.prestige.count / 10))
+  if (greatRings > 0) apply(t, { target: 'all_production', op: 'mult', value: 2 }, greatRings)
   // lit boughs
   const lit = litBoughs(ci, s, t)
   if (lit > 0) apply(t, { target: 'all_production', op: 'mult', value: 1 + BALANCE.lanterns.litBonus * lit }, 1)

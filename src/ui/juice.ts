@@ -41,6 +41,10 @@ export function installJuice(game: Game) {
   on('firefly', (e) => { haptic('light'); if (e.count === 1) toast('Fireflies! Tap them at night for ✨', 'info', '✨') })
   on('thaw', (e) => { haptic('heavy'); toast(`Thawed: +${fmt(e.sap)} 💧`, 'reward', '🧊') })
   on('season', (e) => { if (e.kind === 'caravan_dock') { toast('A caravan docks at the stump', 'info', '🐫'); raiseCard('🐫 Caravan', 'Three offers for five minutes.', { label: 'Trade', run: () => (sheet.value = 'caravan') }) } else if (e.kind === 'storm_start') toast('A storm rolls in — the Rod charges', 'info', '🌩️'); else if (e.kind === 'bloom_start') toast('A blossom wave climbs the tree — tap the front to push it', 'info', '🌸'); else if (e.kind === 'snow') toast('Snowfall: crafting x2', 'info', '❄️'); else if (e.kind === 'gust') toast('A gust! Tap the leaves', 'info', '🍂') })
+  on('kite', () => toast('A kite came home with a package', 'reward', '🪁'))
+  on('expedition', (e) => { if (e.kind === 'sent') toast(`Expedition sent — back in ${e.hours} h`, 'info', '🧭'); else { haptic('success'); audio.chime('chest'); toast(`The expedition returned with a ${e.tier} chest`, 'reward', '🧭', 3500) } })
+  on('chart', (e) => { haptic('success'); toast(`Sailing under ${e.id === 'raw' ? 'The Gatherer' : e.id === 'craft' ? 'The Loom' : e.id === 'night' ? 'The Lantern' : 'The Hammer'}`, 'reward', '🔭') })
+  on('steward', (e) => { if (e.dialed.length) toast('The Head Steward adjusted feed dials', 'info', '🧑‍🌾') })
   on('night', (e) => { if (e.night) toast('Night falls — lanterns light, fireflies drift', 'info', '🌙') })
 }
 export default installJuice

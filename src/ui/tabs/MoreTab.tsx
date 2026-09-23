@@ -5,6 +5,7 @@ import { toast } from '../primitives'
 import { CATEGORIES, categoryLabel, swatch } from '../helpers'
 import { products, purchase, applyPurchase, restore } from '@/engine/iap'
 import type { CosmeticCategory, CosmeticDef } from '@/content/types'
+import { DYE_COST } from '@/engine/game'
 
 type Section = 'wardrobe' | 'market' | 'shop'
 
@@ -76,8 +77,10 @@ function Market() {
         <Small>Earned only. Weekly featured picks marked ★. Every category always in stock.</Small>
         {items.map((c) => <Item key={c.id} c={c} action={<BuyButton label={`${featured.has(c.id) ? '★ ' : ''}${c.fireflyPrice} ✨`} disabled={s.fireflies < c.fireflyPrice!} onClick={() => { if (!game.buyCosmetic(c.id, 'fireflies')) toast('Not enough Fireflies', 'bad') }} />} />)}
       </Card>
-      {kites.length > 0 && Object.values(s.limbs).some((l) => l.includes('kite_yard')) && (
+      {Object.values(s.limbs).some((l) => l.includes('kite_yard')) && (
         <Card id="kiteyard"><div class="title">🪁 Kite Yard</div>
+          <Small>Kites fly every 30 minutes and return with a package. Dye your lanterns any hue for {DYE_COST.lacquer} Lacquer.</Small>
+          <Dye />
           {kites.map((c) => <Item key={c.id} c={c} action={<BuyButton label={`Craft · ${c.craft!.fireflies} ✨`} sub={Object.entries(c.craft!.cost).map(([r, n]) => `${ci.resources.get(r)?.glyph}${n}`).join(' ')} disabled={!game.canAfford(c.craft!.cost) || s.fireflies < c.craft!.fireflies} onClick={() => game.craftKite(c.id, c.craft!.cost, c.craft!.fireflies)} />} />)}
         </Card>
       )}
@@ -105,5 +108,14 @@ function Shop() {
       </Card>
       <Card id="shopitems">{items.map((c) => <Item key={c.id} c={c} action={<BuyButton label={`${c.price} 🫙`} disabled={s.glimmer < c.price!} onClick={() => { if (!game.buyCosmetic(c.id, 'glimmer')) toast('Not enough Glimmer', 'bad') }} />} />)}</Card>
     </>
+  )
+}
+
+function Dye() {
+  const s = game.s
+  const [hue, setHue] = useState(s.cosmetics.dyeHue)
+  return (
+    <Row><span class="swatch" style={{ background: hue }}>🏮</span><input class="grow1" type="color" value={hue} onInput={(e) => { const v = (e.target as HTMLInputElement).value; setHue(v); preview.value = null }} aria-label="Lantern hue" />
+      <BuyButton label="Dye" sub={`🎨${DYE_COST.lacquer}`} disabled={(s.res.lacquer ?? 0) < DYE_COST.lacquer} onClick={() => { if (game.dyeLantern(hue)) toast('Lanterns dyed', 'reward', '🎨'); else toast('Not enough Lacquer', 'bad') }} /></Row>
   )
 }

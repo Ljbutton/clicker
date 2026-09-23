@@ -26,7 +26,8 @@ The full design (numbers, tables, pacing targets) lives in [`docs/GAME_DESIGN.md
 - **Boughs** (Roots, Canopy, Upper Trunk, Deep Roots, Crown, Cloudreach, Starbough, Elder, Worldcrown) open via **Rituals** paid in crafted goods; each is a new biome with its own Folk, workshops and set-pieces.
 - Tap-only **set-pieces** (Beehive Shake, Woodpecker, Golden Acorn, Falling Star…) are treats, never requirements: every one has an idle source one bough later.
 - **Nightwatch**: come back to a haul (offline production runs the same economy step, crafting included), a Dawn Rush tap boost, and a Morning Dew bonus.
-- Roughly once an hour, **Turn the Season** for Rings and spend them in the Ring Tree.
+- Roughly once an hour, **Turn the Season** for Rings and spend them in the Ring Tree. Every Turn adds a mechanic: Wind, Frost, Bloom, Storm, Caravans, Stewards (helpers that buy levels and tune feed dials), Star Charts (a constellation to sail under each Season), Expeditions (Folk leave for 2/4/8 h and return with a chest, even while you're away), and Great Rings every ten Turns.
+- A built Kite Yard flies a kite every 30 minutes that returns with a package, crafts kite cosmetics, and dyes your lanterns any hue for Lacquer.
 
 ## Running it
 
@@ -40,6 +41,7 @@ npm run smoke        # Playwright: boots dist/ at iPhone size, taps, screenshots
 npm run sim -- 70    # headless bots (active / casual / no-tap) for 70 minutes + the design's §17 pacing assertions
 npm run sim -- 120 active --single   # verbose single run that also Turns the Season
 npm run sim:day      # a modeled day: 100 min of play in 8-minute sessions with 2 h gaps (Turns, seasons, Nightwatch)
+npm run sim:week     # six hours of play in 10-minute sessions: Turns 6-10, Stewards, Star Charts, Expeditions, Great Ring
 npm run playthrough  # Playwright: scripted play of the real UI (strike, hire, build, craft, sheets, save, return board)
 ```
 

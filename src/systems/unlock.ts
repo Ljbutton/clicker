@@ -83,6 +83,10 @@ export function conditionProgress(ci: ContentIndex, s: GameState, c: Condition):
     case 'discharges': return { have: st.discharges, need: c.min }
     case 'trades': return { have: st.trades, need: c.min }
     case 'blooms': return { have: st.blooms, need: c.min }
+    case 'expeditions': return { have: st.expeditions, need: c.min }
+    case 'charts': return { have: st.chartsPicked, need: c.min }
+    case 'stewardBuys': return { have: st.stewardBuys, need: c.min }
+    case 'kites_returned': return { have: st.kitesReturned, need: c.min }
   }
 }
 

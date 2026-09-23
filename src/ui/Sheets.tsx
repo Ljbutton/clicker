@@ -9,6 +9,8 @@ import { conditionProgress } from '@/systems/unlock'
 import { setHapticsEnabled } from '@/engine/haptics'
 import { setSoundEnabled } from '@/engine/audio'
 import { pwaInstall } from './share'
+import { ritualCost } from '@/systems/grow'
+import { costText } from './helpers'
 
 /** Unlock cards raised from game events. */
 export const unlockQueue = signal<{ id: number; title: string; body: string; action?: { label: string; run: () => void } }[]>([])
@@ -27,6 +29,7 @@ export function Sheets() {
       <Sheet open={open === 'settings'} onClose={close} title="Settings"><Settings /></Sheet>
       <Sheet open={open === 'stats'} onClose={close} title="Stats & Codex"><Stats /></Sheet>
       <Sheet open={open === 'caravan'} onClose={close} title="Caravan"><Caravan /></Sheet>
+      <Sheet open={open === 'ladder'} onClose={close} title="The tree"><Ladder /></Sheet>
       <UnlockCards />
     </>
   )
@@ -149,3 +152,14 @@ function Caravan() {
   )
 }
 export { roman }
+
+function Ladder() {
+  const s = game.s, ci = game.ci
+  return (
+    <div class="tab-body">
+      <Small>{Math.floor(s.height)} m · best {Math.floor(s.prestige.bestHeight)} m · {s.boughs.length}/{ci.bands.length} boughs open</Small>
+      {ci.bands.map((b) => { const open = s.boughs.includes(b.id); const reached = s.height >= b.line; const cost = b.ritual ? ritualCost(ci, s, b.id, game.fx) : null
+        return <Row key={b.id} class={open ? '' : reached ? '' : 'dimrow'}><span class="swatch" style={{ background: b.leaf }}>{b.glyph}</span><div class="grow1"><div>{b.name} <span class="chip">{b.line} m</span>{open && <span class="chip good">open</span>}{!open && reached && <span class="chip">ritual ready to try</span>}</div><Small>{b.desc}{cost && !open ? ` · Ritual: ${costText(ci, cost)}` : ''}{b.ritual?.requiresSeason ? ` · Season ${b.ritual.requiresSeason + 1}+` : ''}</Small></div></Row> })}
+    </div>
+  )
+}

@@ -8,6 +8,9 @@ import { isUnlocked } from '@/systems/unlock'
 import { roman, effectText, etaText } from '../helpers'
 import { toast } from '../primitives'
 import { BALANCE } from '@/content/balance'
+import { EXPEDITION_HOURS } from '@/systems/seasons'
+import { fmtDuration } from '@/engine/numbers'
+
 
 export function GrowTab() {
   void frame.value
@@ -26,6 +29,8 @@ export function GrowTab() {
         <Small>{Math.floor(s.height)} m · {s.grows} grows this Season · hold GROW for MAX</Small>
       </Card>
       {nb && <BoughCard id={nb.id} />}
+      {game.hasMechanic('stewards') && <Stewards />}
+      {game.hasMechanic('expeditions') && annexBuilt(s, 'trailhead') && <Expedition />}
       {ci.bands.filter((b) => s.boughs.includes(b.id) && b.limbSlots > 0).map((b) => <LimbsCard key={b.id} bandId={b.id} />)}
       {runes.length > 0 && <h3 class="h">Runes</h3>}
       {runes.map((r) => {
@@ -98,6 +103,26 @@ function Wishes() {
       {s.wishes.list.map((w) => { const def = ci.wishes.get(w.id); if (!def) return null; const p = game.wishProgress(w.id)
         return <Row key={w.id}><div class="grow1"><div>{w.done ? '✅ ' : ''}{def.name}</div>{p && !w.done && <Bar value={p.have} max={p.need} height={6} />}</div><span class="chip">✨{def.fireflies}</span></Row> })}
       <Small>Fresh wishes every day. <button class="link" onClick={() => (sheet.value = 'waystone')}>Road ahead →</button> {etaText(0) === '' ? '' : ''}</Small>
+    </Card>
+  )
+}
+
+function Stewards() {
+  const s = game.s
+  return (
+    <Card id="stewards"><Row><div class="grow1"><div class="title">🧑‍🌾 Stewards {s.stewardsOn ? <span class="chip good">working</span> : <span class="chip">resting</span>}</div><Small>One per bough; every 30 s they buy the cheapest lodge or crew level, never spending more than a tenth of your stock. {s.stats.stewardBuys} levels bought so far.</Small></div><button class={`btn sm${s.stewardsOn ? ' btn-good' : ''}`} onClick={() => game.setStewards(!s.stewardsOn)}>{s.stewardsOn ? 'On' : 'Off'}</button></Row></Card>
+  )
+}
+
+function Expedition() {
+  const rem = game.expeditionRemaining()
+  const e = game.s.expedition
+  return (
+    <Card id="expedition">
+      <div class="title">🧭 Expedition {e && <span class="chip">{e.folk} Folk away</span>}</div>
+      {e ? <><Bar value={e.hours * 3600 - (rem ?? 0)} max={e.hours * 3600} height={6} /><Small>Back in ~{fmtDuration(rem ?? 0)} with a {e.hours >= 8 ? 'Star' : e.hours >= 4 ? 'Amber' : 'Bark'} chest. They keep walking while you are away.</Small></> : (
+        <Row class="wrap"><Small>Send Folk off-tree. Longer trips bring better chests.</Small>{EXPEDITION_HOURS.map((h) => <button key={h} class="btn" onClick={() => game.startExpedition(h)}>{h} h → {h >= 8 ? '⭐' : h >= 4 ? '🟠' : '🪵'}</button>)}</Row>
+      )}
     </Card>
   )
 }

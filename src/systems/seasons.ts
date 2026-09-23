@@ -125,3 +125,87 @@ export function tradeCaravan(ci: ContentIndex, s: GameState, offerId: string, no
   s.stats.trades++
   return applyReward(ci, s, o.get, now, baseRate)
 }
+
+/* ---------- Stewards (Turn 6): a helper per bough buys the cheapest affordable level every 30 s ---------- */
+import { producerAvailable, producerCost, buyProducer, needsForeman, producerCount } from './economy'
+export const STEWARD_EVERY = 30
+export const STEWARD_SPEND = 0.1
+export function tickStewards(ci: ContentIndex, s: GameState, fx: EffectTable, now: number, headSteward: boolean): { bought: string[]; dialed: string[] } {
+  const out = { bought: [] as string[], dialed: [] as string[] }
+  if (!s.stewardsOn || !hasMechanic(ci, s, 'stewards') || now - s.lastStewardAt < STEWARD_EVERY) return out
+  s.lastStewardAt = now
+  for (const bandId of s.boughs) {
+    let best: { id: string; worth: number } | null = null
+    for (const p of ci.raw.producers) {
+      if (p.bandId !== bandId || !producerAvailable(ci, s, p.id) || needsForeman(ci, s, p.id)) continue
+      if (p.kind === 'crew' && producerCount(s, p.id) === 0) continue
+      const cost = producerCost(ci, s, p.id, fx, 1)
+      if (!Object.entries(cost).every(([r, n]) => n <= STEWARD_SPEND * (s.res[r] ?? 0))) continue
+      const worth = Object.entries(cost).reduce((a, [r, n]) => a + n * (ci.resources.get(r)?.worth ?? 1), 0)
+      if (!best || worth < best.worth) best = { id: p.id, worth }
+    }
+    if (best && buyProducer(ci, s, best.id, fx, 1) > 0) { out.bought.push(best.id); s.stats.stewardBuys++ }
+  }
+  if (headSteward) {
+    // tune dials: starve nothing, hoard nothing — lower dials of consumers whose input stock is under 30 s of gross, raise when over 10 min
+    const gross = lodgeRates(ci, s, fx)
+    for (const w of ci.workshopOrder) {
+      if (!s.workshops[w.id]) continue
+      const inputs = ci.recipes.get(w.recipe)?.inputs ?? {}
+      let low = false, high = true
+      for (const rid of Object.keys(inputs)) { const g = gross[rid] ?? 0; const st = s.res[rid] ?? 0; if (g > 0 && st < 30 * g) low = true; if (!(g > 0 && st > 600 * g)) high = false }
+      const cur = s.feed[w.id] ?? BALANCE.producers.feedDefault
+      const opts = BALANCE.producers.feedOptions as readonly number[]
+      const i = opts.indexOf(cur)
+      if (low && i > 1) { s.feed[w.id] = opts[i - 1]!; out.dialed.push(w.id) }
+      else if (high && i >= 0 && i < opts.length - 1) { s.feed[w.id] = opts[i + 1]!; out.dialed.push(w.id) }
+    }
+  }
+  return out
+}
+import { lodgeRates } from './economy'
+
+/* ---------- Kite flights: a built Kite Yard launches a kite every 30 min that returns with a package ---------- */
+export const KITE_EVERY = 1800
+export function tickKites(ci: ContentIndex, s: GameState, now: number): boolean {
+  if (!annexBuilt(s, 'kite_yard')) return false
+  if (s.kite.nextAt === 0) { s.kite.nextAt = now + KITE_EVERY; return false }
+  if (now < s.kite.nextAt) return false
+  s.kite.nextAt = now + KITE_EVERY
+  s.stats.kitesReturned++
+  s.chests.push({ id: `bark:kite:${Math.floor(now)}:${s.chests.length}`, tier: 'bark', source: 'Kite' })
+  return true
+}
+
+/* ---------- Expeditions (Turn 8): Folk leave for 2/4/8 h and return with a chest ---------- */
+export const EXPEDITION_HOURS = [2, 4, 8] as const
+export function startExpedition(ci: ContentIndex, s: GameState, hours: number, wallMs: number, folk: number): boolean {
+  if (!hasMechanic(ci, s, 'expeditions') || !annexBuilt(s, 'trailhead') || s.expedition) return false
+  if (!EXPEDITION_HOURS.includes(hours as 2 | 4 | 8)) return false
+  s.expedition = { until: wallMs + hours * 3600 * 1000, hours, folk }
+  return true
+}
+/** Resolve a finished expedition (called on load and once per second). */
+export function resolveExpedition(s: GameState, wallMs: number, now: number): { hours: number; tier: 'bark' | 'amber' | 'star' } | null {
+  const e = s.expedition
+  if (!e || wallMs < e.until) return null
+  s.expedition = null
+  s.stats.expeditions++
+  const tier = e.hours >= 8 ? 'star' : e.hours >= 4 ? 'amber' : 'bark'
+  s.chests.push({ id: `${tier}:expedition:${Math.floor(now)}:${s.chests.length}`, tier, source: 'Expedition' })
+  return { hours: e.hours, tier }
+}
+
+/* ---------- Star Charts (Turn 7): choose a constellation per Season ---------- */
+export const CHARTS = [
+  { id: 'raw', name: 'The Gatherer', glyph: '🌾', desc: 'All raw production x2' },
+  { id: 'craft', name: 'The Loom', glyph: '🧶', desc: 'All crafting x2' },
+  { id: 'night', name: 'The Lantern', glyph: '🏮', desc: 'Nightwatch rate +50%' },
+  { id: 'strikes', name: 'The Hammer', glyph: '🔨', desc: 'Strikes x1.5' },
+] as const
+export function chooseChart(ci: ContentIndex, s: GameState, id: string, maxPicks: number): boolean {
+  if (!hasMechanic(ci, s, 'charts') || !CHARTS.some((c) => c.id === id) || s.charts.includes(id) || s.charts.length >= maxPicks) return false
+  s.charts.push(id)
+  s.stats.chartsPicked++
+  return true
+}

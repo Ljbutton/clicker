@@ -11,10 +11,12 @@ import { BALANCE } from '../src/content/balance'
 const mk = (clock = { t: 1_700_000_000_000 }) => new Game(mini, { storage: memoryStorage(), seed: 11, clock: () => clock.t })
 
 describe('formulas from the design doc', () => {
-  it('rings(HW) matches §17.18', () => {
-    const table: [number, number][] = [[1e7, 0], [1e8, 3], [2.1e8, 5], [1e9, 8], [1e10, 13], [1e12, 25], [1e15, 49], [1e18, 78], [1e24, 146]]
-    for (const [hw, r] of table) expect(ringsFor(hw)).toBe(r)
+  it('rings(HW) follows floor(2·log10(HW/K)^1.5) relative to K', () => {
+    const K = BALANCE.prestige.K
+    const table: [number, number][] = [[0.5, 0], [1, 2], [2, 5], [3, 10], [4, 16], [6, 29], [10, 63]]
+    for (const [n, r] of table) expect(ringsFor(K * Math.pow(10, n))).toBe(r)
     expect(ringsFor(heartwoodFor(5) * 1.0001)).toBe(5)
+    expect(ringsFor(heartwoodFor(5) * 0.9999)).toBe(4)
   })
   it('GROW cumulative cost matches §8.1 (vigor 1)', () => {
     const g = mk(); const fx = emptyEffects()
@@ -119,14 +121,14 @@ describe('progression', () => {
   })
   it('Turn the Season pays Rings from Heartwood, resets the run, keeps cosmetics, applies Head Start and Kept Foremen', () => {
     const g = mk()
-    g.s.heartwood = 1e9
+    g.s.heartwood = heartwoodFor(8) * 1.001; g.s.runTime = 3600
     expect(g.rings).toBe(8)
     g.s.cosmetics.owned.push('hat_acorn')
     expect(g.turnSeason()).toBe(8)
     expect(g.s.prestige.count).toBe(1); expect(g.s.prestige.rings).toBe(8); expect(g.s.height).toBe(0); expect(g.s.heartwood).toBe(0)
     expect(g.s.cosmetics.owned).toContain('hat_acorn'); expect(g.s.cosmetics.owned).toContain('tr_autumn')
     expect(g.buyNode('roots_start')).toBe(true); expect(g.buyNode('canopy_kept')).toBe(true)
-    g.s.heartwood = 1e9; g.turnSeason()
+    g.s.heartwood = heartwoodFor(8) * 1.001; g.s.runTime = 3600; g.turnSeason()
     expect(g.s.producers.sapper).toBe(5)
     expect(g.s.workshops.kiln).toBe(true); expect(g.s.producers.kiln_crew).toBe(1)
     expect(g.pinned).not.toBeNull()

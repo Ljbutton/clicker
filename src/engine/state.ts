@@ -56,8 +56,15 @@ export interface GameState {
   bloom: { nextAt: number; startedAt: number; active: boolean; front: number }
   storm: { nextAt: number; activeUntil: number; charges: number; fullAt: number; lastStrikeAt: number }
   caravan: { nextAt: number; activeUntil: number; offers: string[]; taken: string[]; cosmeticOffer: string | null }
+  /** Star Charts chosen this Season. */
+  charts: string[]
+  kite: { nextAt: number }
+  lastStewardAt: number
 
   // ---------- Persistent ----------
+  stewardsOn: boolean
+  /** Active expedition: returns at `until` (wall-clock ms). */
+  expedition: { until: number; hours: number; folk: number } | null
   prestige: { count: number; rings: number; lifetimeRings: number; nodes: Record<string, number>; bestHeight: number }
   fireflies: number
   firefliesLifetime: number
@@ -70,7 +77,7 @@ export interface GameState {
   landmarks: string[]
   milestones: string[]
   chests: PendingChest[]
-  cosmetics: { owned: string[]; equipped: Partial<Record<CosmeticCategory, string>>; purchases: string[]; supporter: boolean; initials: string }
+  cosmetics: { owned: string[]; equipped: Partial<Record<CosmeticCategory, string>>; purchases: string[]; supporter: boolean; initials: string; dyeHue: string }
   setPieceCounts: Record<string, number>
   wishes: { day: number; list: { id: string; base: number; done: boolean }[] }
   streak: { lastDay: number; count: number }
@@ -81,6 +88,7 @@ export interface GameState {
     masterworksTotal: number; seasons: number; maxHeight: number; offlineEarned: number; setPiecesTotal: number
     lastDailyBonus: number; thaws: number; gusts: number; discharges: number; trades: number; blooms: number
     handcraftsTotal: number; runesTotal: number; ritualsTotal: number; chestsOpened: number
+    expeditions: number; chartsPicked: number; stewardBuys: number; kitesReturned: number
   }
   settings: { haptics: boolean; sound: boolean; reducedMotion: boolean; sci: boolean; fps30: boolean; leftHand: boolean }
   flags: Record<string, boolean>
@@ -91,7 +99,7 @@ export const SAVE_VERSION = 2
 export function seasonDefaults(now: number): Pick<GameState,
   'height' | 'grows' | 'res' | 'earned' | 'heartwood' | 'producers' | 'workshops' | 'handcrafts' | 'crafted' | 'craftAcc' | 'runes' | 'boughs' | 'limbs' | 'limbsBought' | 'annexLevels' | 'hearthTarget' |
   'strikes' | 'crits' | 'resonances' | 'masterworks' | 'thrum' | 'thrumLastAt' | 'resonanceUntil' | 'rally' | 'droplet' | 'dropletBoostUntil' | 'dawnRushUntil' | 'tokens' | 'setPiece' | 'nextSetPieceAt' | 'laneIndex' |
-  'nightFireflies' | 'nightIndex' | 'lastAutoThrumAt' | 'wind' | 'frost' | 'bloom' | 'storm' | 'caravan' | 'runTime'> {
+  'nightFireflies' | 'nightIndex' | 'lastAutoThrumAt' | 'wind' | 'frost' | 'bloom' | 'storm' | 'caravan' | 'charts' | 'kite' | 'lastStewardAt' | 'runTime'> {
   return {
     height: 0, grows: 0, res: {}, earned: {}, heartwood: 0, producers: {}, workshops: {}, handcrafts: {}, crafted: {}, craftAcc: {}, runes: {},
     boughs: ['trunk'], limbs: {}, limbsBought: 0, annexLevels: {}, hearthTarget: null,
@@ -103,6 +111,7 @@ export function seasonDefaults(now: number): Pick<GameState,
     bloom: { nextAt: 0, startedAt: 0, active: false, front: 0 },
     storm: { nextAt: 0, activeUntil: 0, charges: 0, fullAt: 0, lastStrikeAt: 0 },
     caravan: { nextAt: 0, activeUntil: 0, offers: [], taken: [], cosmeticOffer: null },
+    charts: [], kite: { nextAt: 0 }, lastStewardAt: 0,
     runTime: 0,
   }
 }
@@ -111,14 +120,14 @@ export function defaultState(now: number): GameState {
   return {
     createdAt: now, lastSeen: now, playTime: 0,
     ...seasonDefaults(now),
-    feed: {},
+    feed: {}, stewardsOn: true, expedition: null,
     prestige: { count: 0, rings: 0, lifetimeRings: 0, nodes: {}, bestHeight: 0 },
     fireflies: 0, firefliesLifetime: 0, glimmer: 0, glimmerEarned: 0, lifetimeHeartwood: 0, lifetimeLanterns: 0, lifetimeRunes: 0,
     codex: { discovered: [], attempts: {}, revealed: {} },
     landmarks: [], milestones: [], chests: [],
-    cosmetics: { owned: [], equipped: {}, purchases: [], supporter: false, initials: '' },
+    cosmetics: { owned: [], equipped: {}, purchases: [], supporter: false, initials: '', dyeHue: '#ff8a5c' },
     setPieceCounts: {}, wishes: { day: 0, list: [] }, streak: { lastDay: 0, count: 0 }, annexDiscovered: [], kites: 0,
-    stats: { strikesTotal: 0, critsTotal: 0, resonancesTotal: 0, growsTotal: 0, craftsTotal: 0, masterworksTotal: 0, seasons: 0, maxHeight: 0, offlineEarned: 0, setPiecesTotal: 0, lastDailyBonus: 0, thaws: 0, gusts: 0, discharges: 0, trades: 0, blooms: 0, handcraftsTotal: 0, runesTotal: 0, ritualsTotal: 0, chestsOpened: 0 },
+    stats: { strikesTotal: 0, critsTotal: 0, resonancesTotal: 0, growsTotal: 0, craftsTotal: 0, masterworksTotal: 0, seasons: 0, maxHeight: 0, offlineEarned: 0, setPiecesTotal: 0, lastDailyBonus: 0, thaws: 0, gusts: 0, discharges: 0, trades: 0, blooms: 0, handcraftsTotal: 0, runesTotal: 0, ritualsTotal: 0, chestsOpened: 0, expeditions: 0, chartsPicked: 0, stewardBuys: 0, kitesReturned: 0 },
     settings: { haptics: true, sound: false, reducedMotion: false, sci: false, fps30: false, leftHand: false },
     flags: {},
   }
@@ -128,11 +137,11 @@ export function defaultState(now: number): GameState {
 export function normalizeState(partial: Partial<GameState>, now: number): GameState {
   const d = defaultState(now)
   const s: GameState = { ...d, ...partial }
-  const objs = ['rally', 'wind', 'frost', 'bloom', 'storm', 'caravan', 'prestige', 'codex', 'cosmetics', 'wishes', 'streak', 'stats', 'settings'] as const
+  const objs = ['rally', 'wind', 'frost', 'bloom', 'storm', 'caravan', 'kite', 'prestige', 'codex', 'cosmetics', 'wishes', 'streak', 'stats', 'settings'] as const
   for (const k of objs) (s as any)[k] = { ...(d as any)[k], ...((partial as any)[k] ?? {}) }
   const maps = ['res', 'earned', 'producers', 'workshops', 'handcrafts', 'crafted', 'craftAcc', 'feed', 'runes', 'limbs', 'annexLevels', 'setPieceCounts', 'flags'] as const
   for (const k of maps) if (!s[k] || typeof s[k] !== 'object') (s as any)[k] = {}
-  const arrs = ['boughs', 'tokens', 'landmarks', 'milestones', 'chests', 'annexDiscovered'] as const
+  const arrs = ['boughs', 'tokens', 'landmarks', 'milestones', 'chests', 'annexDiscovered', 'charts'] as const
   for (const k of arrs) if (!Array.isArray(s[k])) (s as any)[k] = []
   if (!s.boughs.includes('trunk')) s.boughs.unshift('trunk')
   if (!Array.isArray(s.codex.discovered)) s.codex.discovered = []

@@ -117,7 +117,7 @@ describe('producers, annexes, runes', () => {
     expect(content.producers.find((p) => p.id === 'beekeeper')!.unlock).toEqual({ kind: 'annex', id: 'apiary' })
   })
   it('annexes reference real boughs/resources; specials are unique', () => {
-    expect([...A]).toEqual(['apiary', 'kite_yard', 'hearth', 'windmill', 'frost_cellar', 'grove', 'lightning_rod', 'caravan_post', 'owl_nest'])
+    expect([...A]).toEqual(['apiary', 'kite_yard', 'hearth', 'windmill', 'frost_cellar', 'grove', 'lightning_rod', 'caravan_post', 'owl_nest', 'trailhead'])
     for (const a of content.annexes) { expectCost(a.cost, a.id); expectUnlock(a.unlock, a.id); if (a.bandId) expect(B.has(a.bandId), a.id).toBe(true) }
     expect(new Set(content.annexes.map((a) => a.special)).size).toBe(content.annexes.length)
   })
@@ -155,7 +155,7 @@ describe('milestones, lanes and rewards', () => {
       for (const g of m.introGoals ?? []) { expectCondition(g.cond, `${m.id}/${g.id}`); expectReward(g.reward, `${m.id}/${g.id}`) }
     }
     expect(content.mechanics.map((m) => m.atTurn)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 10])
-    expect(content.mechanics.filter((m) => m.implemented).map((m) => m.id)).toEqual(['first_ring', 'wind', 'frost', 'bloom', 'storm', 'caravan', 'greatring'])
+    expect(content.mechanics.filter((m) => m.implemented).map((m) => m.id)).toEqual(['first_ring', 'wind', 'frost', 'bloom', 'storm', 'caravan', 'stewards', 'charts', 'expeditions', 'greatring'])
   })
 })
 

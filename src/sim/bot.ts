@@ -88,7 +88,7 @@ export function runBot(content: Content, opts: BotOptions): BotResult {
     if (game.s.storm.charges >= 3) game.dischargeRod()
     if (!rings3 && game.rings >= 3) { rings3 = true; log('rings', '3 Rings (Turn available)') }
     if (!rings5 && game.rings >= 5) { rings5 = true; log('rings', '5 Rings (Turn recommended)') }
-    if (opts.turn && game.rings >= BALANCE.prestige.recommendRings && game.s.laneIndex >= 40) { game.turnSeason(); turns++; buyNodes(game); rings3 = false; rings5 = false; if (opts.maxTurns && turns >= opts.maxTurns) return finish() }
+    if (opts.turn && game.canTurn && game.rings >= BALANCE.prestige.recommendRings && game.s.laneIndex >= 40) { game.turnSeason(); turns++; buyNodes(game); rings3 = false; rings5 = false; if (opts.maxTurns && turns >= opts.maxTurns) return finish() }
 
     // decide every 2 s
     if (Math.round(elapsed / step) % Math.round(2 / step) !== 0) continue
@@ -107,7 +107,7 @@ export function runBot(content: Content, opts: BotOptions): BotResult {
         case 'crucible': { const rid = (g.target ?? '').replace('crucible:', '') || g.id; const r = game.ci.recipes.get(rid); if (r && game.hints().some((h) => h.recipe.id === rid)) game.crucible(rid, Object.keys(r.inputs)); break }
         case 'craft': { const rid = g.lane?.cond.kind === 'crafted' ? g.lane.cond.id : null; const w = rid ? game.ci.raw.workshops.find((x) => x.recipe === rid) : null; if (w && !s.workshops[w.id] && workshopBuildable(game.ci, s, w.id)) game.buildWorkshop(w.id); if (w && s.workshops[w.id]) { const crew = game.ci.crewByStation.get(w.id); if (crew && needsForeman(game.ci, s, crew.id)) { for (let i = 0; i < 6 && !game.hireForeman(crew.id); i++) if (game.tapWorkshop(w.id).made === 0) break } } break }
         case 'tap': { if (g.lane?.cond.kind === 'grows') game.grow(1); else if (g.lane?.cond.kind === 'handcrafts') { const st = g.lane.cond.station; if (!s.workshops[st] && workshopBuildable(game.ci, s, st)) game.buildWorkshop(st); for (let i = 0; i < 3; i++) game.tapWorkshop(st) } else if (g.lane?.cond.kind === 'kites') { game.craftKite('kite_carp', { cord: 50, lacquer: 20 }, 60) } break }
-        case 'turn': if (opts.turn !== false && game.rings >= BALANCE.prestige.recommendRings) { game.turnSeason(); turns++; buyNodes(game); if (opts.maxTurns && turns >= opts.maxTurns) return finish() } break
+        case 'turn': if (opts.turn !== false && game.canTurn && game.rings >= BALANCE.prestige.recommendRings) { game.turnSeason(); turns++; buyNodes(game); if (opts.maxTurns && turns >= opts.maxTurns) return finish() } break
       }
       if (g.advice?.action) { const a = g.advice.action; if (a.kind === 'lodge') game.buyProducer(a.id, 1); else if (needsForeman(game.ci, s, a.id)) { const st = game.ci.producers.get(a.id)?.station; if (st) for (let i = 0; i < 6 && !game.hireForeman(a.id); i++) if (game.tapWorkshop(st).made === 0) break } else game.buyProducer(a.id, 1) }
     }
@@ -138,6 +138,9 @@ export function runBot(content: Content, opts: BotOptions): BotResult {
     for (const h of game.hints()) game.crucible(h.recipe.id, Object.keys(h.recipe.inputs))
     // rituals when affordable
     const nb = game.nextBough(); if (nb && game.canAffordRitual(nb.id)) game.performRitual(nb.id)
+    // new mechanics: charts, expeditions
+    if (game.hasMechanic('charts') && game.s.charts.length === 0) game.chooseChart('raw')
+    if (game.hasMechanic('expeditions') && !game.s.expedition) game.startExpedition(2)
     // caravan trades
     if (game.s.caravan.offers.length) for (const o of game.s.caravan.offers) game.trade(o)
   }

@@ -13,7 +13,7 @@ export const game = new Game(content, { storage: browserStorage(), saveKey: 'hol
 export const frame = signal(0)
 export type Tab = 'grow' | 'folk' | 'craft' | 'season' | 'more'
 export const tab = signal<Tab>('grow')
-export const sheet = signal<null | 'settings' | 'waystone' | 'stats' | 'return' | 'crucible' | 'caravan'>(null)
+export const sheet = signal<null | 'settings' | 'waystone' | 'stats' | 'return' | 'crucible' | 'caravan' | 'ladder'>(null)
 export const returnBoard = signal<import('@/engine/game').ReturnBoard | null>(null)
 
 let saveAcc = 0

@@ -11,6 +11,7 @@
 > - Rune of Thrum: x1.25 per tier, 8 tiers. Lodge cost growth 1.15 (was 1.13), crew 1.18 (was 1.15).
 > - Rituals: Canopy 300 Plank + 80 Beam; Upper Trunk 600 Beam + 300 Brick + 120 Glass; Deep Roots 2,000 Beam + 600 Glass + 300 Lacquer.
 > - Rings: K = 3e7 (was 3e6). Feed dials are shared per resource (sum of consumer dials, capped at 90%) so a tenth of every good always accumulates.
+> - v1.1 features: Stewards (Turn 6), Star Charts (Turn 7, chosen on the Rings tab; the Starbough altar is scene decoration), Expeditions (Turn 8, Trailhead annex) and Great Rings (x2 everything and +1 limb per bough, capped at three) are implemented; kites fly every 30 min from a built Kite Yard; lantern dyes cost 20 Lacquer. Guard rails found by the multi-day sim: the Ring passive caps at 1,000 Rings (x51) and a Season must be at least 10 minutes old before it can be Turned, or a maxed Ring Tree lets a player Turn every 20 seconds.
 > - Waystone: goal #43 accepts any set-piece; optional goals are skipped once a Turn is recommended; when the lane head is more than 10 minutes away the bar pins the Compass's nearest goal and moves the lane head to the runway.
 > - Measured (active bot): Kiln Foreman 0:34, Sawmill Foreman 2:48, Roots 3:42, Canopy 5:12, Upper Trunk 8:12, Deep Roots 13:26, 3 Rings ~25 min, 5 Rings ~35 min, Crown ~70 min; strikes ≈ 39% of income after minute 10; casual Turn ~60 min. The early boughs land sooner than §10's targets on purpose: the first ten minutes stay dense with visible world changes.
 

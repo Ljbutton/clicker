@@ -2,9 +2,11 @@ import { game, frame } from '../store'
 import { Card, HoldButton, BuyButton, Row, Small } from '../cards'
 import { Bar } from '../primitives'
 import { fmt, fmtDuration } from '@/engine/numbers'
-import { heartwoodFor, nodeCost, nodeLevel, nodeVisible } from '@/systems/prestige'
+import { heartwoodFor, nodeCost, nodeLevel, nodeVisible, turnOpensIn } from '@/systems/prestige'
 import { effectText } from '../helpers'
 import { BALANCE } from '@/content/balance'
+import { CHARTS } from '@/systems/seasons'
+import { nodeLevel as lvl } from '@/systems/prestige'
 import type { Limb } from '@/content/types'
 
 const LIMBS: { id: Limb; name: string; glyph: string }[] = [{ id: 'roots', name: 'Roots', glyph: '🌱' }, { id: 'trunk', name: 'Trunk', glyph: '🪵' }, { id: 'canopy', name: 'Canopy', glyph: '🍃' }, { id: 'crown', name: 'Crown', glyph: '👑' }, { id: 'heartwood', name: 'Heartwood', glyph: '🌀' }]
@@ -23,11 +25,12 @@ export function SeasonTab() {
         <div class="title">🌀 Turn the Season <span class="chip">Season {s.prestige.count + 1}{cur ? ` · ${cur.seasonName}` : ''}</span></div>
         <Small>Heartwood {fmt(s.heartwood)} · Rings now: <b>{rings}</b>{Number.isFinite(eta) ? ` · +1 in ~${fmtDuration(eta)}` : ''} · unspent {s.prestige.rings} · lifetime {s.prestige.lifetimeRings}</Small>
         <Bar value={Math.log10(Math.max(1, s.heartwood))} max={Math.log10(nextHW)} height={6} />
-        {rings < min ? <Small>Turn at {min} Rings. {next ? `Next: ${next.seasonName} — ${next.name}` : ''}</Small> : (
+        {rings < min ? <Small>Turn at {min} Rings. {next ? `Next: ${next.seasonName} — ${next.name}` : ''}</Small> : turnOpensIn(s) > 0 ? <Small>The Season needs a little more time: the Turn opens in ~{fmtDuration(turnOpensIn(s))}.</Small> : (
           <HoldButton class="btn-primary" seconds={BALANCE.prestige.holdMs / 1000} onComplete={() => game.turnSeason()} label={`Hold to Turn: +${rings} Rings${rings < BALANCE.prestige.recommendRings ? ' (recommended at 5)' : ''}`} />
         )}
         {next && <Small>{next.glyph} Turn {next.atTurn} unlocks <b>{next.name}</b>: {next.desc}{next.implemented ? '' : ' (next update)'}</Small>}
       </Card>
+      {game.hasMechanic('charts') && <Charts />}
       {(s.prestige.count > 0 || s.prestige.lifetimeRings > 0) && <RingTree />}
       <Ladder />
     </div>
@@ -61,6 +64,18 @@ function Ladder() {
     <Card id="ladder">
       <div class="title">📜 The Season ladder</div>
       {ci.raw.mechanics.filter((m) => m.atTurn > 0).map((m) => <Row key={m.id} class={m.atTurn <= s.prestige.count ? 'done' : ''}><span class="swatch" style={{ background: m.palette.leaf }} /><div class="grow1"><div>{m.glyph} Turn {m.atTurn}: {m.seasonName} — <b>{m.name}</b>{!m.implemented && <span class="chip">next update</span>}{m.atTurn <= s.prestige.count && ' ✅'}</div><Small>{m.desc}{m.medal ? ` · medal: ${ci.cosmetics.get(m.medal)?.name}` : ''}</Small></div></Row>)}
+    </Card>
+  )
+}
+
+function Charts() {
+  const s = game.s
+  const max = 1 + lvl(s, 'hw_chart')
+  return (
+    <Card id="charts">
+      <div class="title">🔭 Star Charts <span class="chip">{s.charts.length}/{max} this Season</span></div>
+      <Small>Choose a constellation to sail under until the next Turn.</Small>
+      {CHARTS.map((c) => <Row key={c.id}><div class="grow1"><div>{c.glyph} {c.name}{s.charts.includes(c.id) && ' ✅'}</div><Small>{c.desc}</Small></div><BuyButton label={s.charts.includes(c.id) ? 'Chosen' : 'Choose'} disabled={s.charts.includes(c.id) || s.charts.length >= max} onClick={() => game.chooseChart(c.id)} /></Row>)}
     </Card>
   )
 }

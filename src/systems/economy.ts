@@ -287,7 +287,7 @@ export function limbCost(s: GameState): Cost { return { [BALANCE.limbs.good]: Ma
 export function limbsOn(s: GameState, bandId: string) { return s.limbs[bandId] ?? [] }
 export function freeLimb(ci: ContentIndex, s: GameState, bandId: string): boolean {
   const b = ci.bandById.get(bandId)
-  return !!b && s.boughs.includes(bandId) && limbsOn(s, bandId).length < b.limbSlots
+  return !!b && s.boughs.includes(bandId) && limbsOn(s, bandId).length < b.limbSlots + Math.min(BALANCE.prestige.greatRingsMax, Math.floor(s.prestige.count / 10))
 }
 export function annexBuilt(s: GameState, id: string): boolean { return Object.values(s.limbs).some((l) => l.includes(id)) }
 export function annexAvailable(ci: ContentIndex, s: GameState, id: string, bandId: string): boolean {

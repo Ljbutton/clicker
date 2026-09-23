@@ -36,6 +36,8 @@ export function SceneHost() {
         </div>
       )}
       {away && <button class="now-pill" onClick={() => { handle.current?.scrollToTip(); setAway(false) }}>Now ↑</button>}
+      {game.s.stats.strikesTotal < 5 && game.s.prestige.count === 0 && <div class="hint" aria-hidden="true"><span class="hint-finger">👆</span>Strike the trunk</div>}
+      {game.s.stats.strikesTotal >= 5 && game.s.laneIndex === 1 && <div class="hint hint-low" aria-hidden="true">Now press GROW ↓</div>}
     </div>
   )
 }

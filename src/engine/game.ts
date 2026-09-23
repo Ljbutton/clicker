@@ -18,7 +18,8 @@ import { turnSeason, buyNode, ringsNow, canTurn, hasMechanic } from '@/systems/p
 import { applyOffline, type OfflineSummary } from '@/systems/offline'
 import { candidates, best, laneGoal, advise, type Goal } from '@/systems/compass'
 import { tickSetPiece, tapSetPiece } from '@/systems/setpiece'
-import { tickSeasons, tapFrozen, discharge, tradeCaravan, dockCaravan, type SeasonEvent } from '@/systems/seasons'
+import { tickSeasons, tapFrozen, discharge, tradeCaravan, dockCaravan, tickStewards, tickKites, startExpedition, resolveExpedition, chooseChart, type SeasonEvent } from '@/systems/seasons'
+import { nodeLevel } from '@/systems/prestige'
 import { tickWaystone, currentGoal, upcoming, legacyNext, resetLaneCache } from '@/systems/waystone'
 import { attempt as crucibleAttempt, availableHints } from '@/systems/codex'
 import { conditionProgress } from '@/systems/unlock'
@@ -61,6 +62,10 @@ export interface GameEvents {
   firefly: { count: number }
   wish: { id: string; fireflies: number }
   thaw: { sap: number; taps: number }
+  kite: { count: number }
+  expedition: { kind: 'sent' | 'returned'; hours: number; tier?: string }
+  chart: { id: string }
+  steward: { bought: string[]; dialed: string[] }
 }
 
 export interface GameOptions { storage?: Storage; saveKey?: string; seed?: number; clock?: () => number }
@@ -166,6 +171,9 @@ export class Game {
       s.streak.lastDay = day
     }
     if (this.hasMechanic('caravan')) dockCaravan(this.ci, s, this.rng, this.now)
+    const ex = resolveExpedition(s, this.clock(), this.now)
+    if (ex) this.events.emit('expedition', { kind: 'returned', hours: ex.hours, tier: ex.tier })
+    if (summary.elapsed >= 1800 && s.kite.nextAt > 0 && Object.values(s.limbs).some((l) => l.includes('kite_yard'))) { s.kite.nextAt = this.now + 1800; s.stats.kitesReturned++; pushChest(s, 'bark', 'Kite', this.now) }
     const growsAffordable = growMaxAffordable(this.ci, s, this.fx)
     let reachable: ReturnBoard['reachable'] = null
     const nb = nextBough(this.ci, s)
@@ -222,6 +230,11 @@ export class Game {
       this.checkLane()
       this.checkMilestones()
       this.checkWishes()
+      const st = tickStewards(this.ci, s, this.fx, this.now, nodeLevel(s, 'hw_steward') > 0)
+      if (st.bought.length || st.dialed.length) { this.fxDirty = true; this.events.emit('steward', st) }
+      if (tickKites(this.ci, s, this.now)) { this.events.emit('kite', { count: s.stats.kitesReturned }); this.events.emit('chestDropped', { tier: 'bark', source: 'Kite' }) }
+      const ex = resolveExpedition(s, this.clock(), this.now)
+      if (ex) { this.events.emit('expedition', { kind: 'returned', hours: ex.hours, tier: ex.tier }); this.events.emit('chestDropped', { tier: ex.tier, source: 'Expedition' }) }
       const night = this.isNight
       if (night !== this.lastNight) { this.lastNight = night; if (night) { s.nightIndex++; s.nightFireflies = 0 } this.events.emit('night', { night }) }
       while (s.chests.length > BALANCE.chests.maxPending) this.openChest(s.chests[0]!.id)
@@ -324,6 +337,29 @@ export class Game {
   tapFrozen() { const r = tapFrozen(this.ci, this.s, this.fx, this.idleSap); if (r.done) this.events.emit('thaw', { sap: r.sap ?? 0, taps: r.taps }); return r }
   dischargeRod() { const n = discharge(this.ci, this.s, this.fx, 1); return n }
   trade(offerId: string) { const g = tradeCaravan(this.ci, this.s, offerId, this.now, this.steadyIdleSap); if (g?.cosmetic) this.events.emit('cosmetic', { id: g.cosmetic, how: 'earned' }); return g }
+  chooseChart(id: string): boolean {
+    const ok = chooseChart(this.ci, this.s, id, 1 + nodeLevel(this.s, 'hw_chart'))
+    if (ok) { this.dirty(); this.events.emit('chart', { id }) }
+    return ok
+  }
+  startExpedition(hours: number): boolean {
+    const folk = 3 + nodeLevel(this.s, 'hw_exped')
+    const ok = startExpedition(this.ci, this.s, hours, this.clock(), folk)
+    if (ok) this.events.emit('expedition', { kind: 'sent', hours })
+    return ok
+  }
+  expeditionRemaining(): number | null { const e = this.s.expedition; return e ? Math.max(0, (e.until - this.clock()) / 1000) : null }
+  setStewards(on: boolean) { this.s.stewardsOn = on }
+  /** Kite Yard: dye lanterns any hue for Lacquer. */
+  dyeLantern(hue: string): boolean {
+    if (!Object.values(this.s.limbs).some((l) => l.includes('kite_yard'))) return false
+    if (!spendDye(this.s)) return false
+    this.s.cosmetics.dyeHue = hue
+    if (!this.ownsCosmetic('lc_dye')) this.s.cosmetics.owned.push('lc_dye')
+    this.s.cosmetics.equipped['lantern_color'] = 'lc_dye'
+    this.events.emit('cosmetic', { id: 'lc_dye', how: 'crafted' })
+    return true
+  }
   tapBloomFront() { if (this.s.bloom.active) { this.s.bloom.startedAt -= BALANCE.bloom.perBough; this.dirty(); return true } return false }
 
   /* ---------- growth ---------- */
@@ -491,6 +527,9 @@ export class Game {
     return [...cats.values()].map((ids) => r.pick(ids))
   }
 }
+
+export const DYE_COST = { lacquer: 20 }
+function spendDye(s: GameState): boolean { if ((s.res.lacquer ?? 0) < DYE_COST.lacquer) return false; s.res.lacquer = (s.res.lacquer ?? 0) - DYE_COST.lacquer; return true }
 
 function growsToHeightCost(g: Game, target: number): number {
   // local helper to avoid a circular import in returnBoard
