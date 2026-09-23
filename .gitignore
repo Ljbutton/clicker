@@ -8,3 +8,4 @@ ios/
 test-results/
 playwright-report/
 screenshots/
+release/

@@ -29,6 +29,18 @@ The full design (numbers, tables, pacing targets) lives in [`docs/GAME_DESIGN.md
 - Roughly once an hour, **Turn the Season** for Rings and spend them in the Ring Tree. Every Turn adds a mechanic: Wind, Frost, Bloom, Storm, Caravans, Stewards (helpers that buy levels and tune feed dials), Star Charts (a constellation to sail under each Season), Expeditions (Folk leave for 2/4/8 h and return with a chest, even while you're away), and Great Rings every ten Turns.
 - A built Kite Yard flies a kite every 30 minutes that returns with a package, crafts kite cosmetics, and dyes your lanterns any hue for Lacquer.
 
+## Downloads (Windows)
+
+Every `v*` tag builds a release on GitHub Actions and attaches:
+
+- `Hollowspire-Setup-<version>.exe` — one-click installer (Electron wrapper, phone-shaped window; saves live in your user profile)
+- `Hollowspire-<version>-portable.exe` — no install, run from anywhere
+- `Hollowspire.html` — the whole game in one file; double-click to play in any browser, no install (saves live in that browser)
+
+See the Releases page of the repository. The build is unsigned, so Windows SmartScreen will ask you to confirm the first run ("More info → Run anyway").
+
+Locally: `npm run dist:win` (needs Windows or Wine for the installer) or `npm run build:single`.
+
 ## Running it
 
 ```bash
