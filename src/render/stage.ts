@@ -71,6 +71,7 @@ export class Stage {
   time = 0;
   rainOn = false;
   flashEl: HTMLDivElement;
+  waterEl: HTMLDivElement;
   onUpdate: ((dt: number) => void) | null = null;
   skyName: SkyName = 'day';
 
@@ -115,6 +116,9 @@ export class Stage {
     this.flashEl = document.createElement('div');
     this.flashEl.className = 'flash';
     container.appendChild(this.flashEl);
+    this.waterEl = document.createElement('div');
+    this.waterEl.className = 'underwater';
+    container.appendChild(this.waterEl);
 
     window.addEventListener('resize', () => this.resize());
     this.resize();
@@ -536,6 +540,9 @@ export class Stage {
     }
     this.camera.position.copy(this.camPos).add(off);
     this.camera.lookAt(this.camLook);
+    const cp = this.camera.position;
+    const wet = !!this.world && this.world.name(Math.floor(cp.x), Math.floor(cp.y), Math.floor(cp.z)) === 'water';
+    this.waterEl.classList.toggle('on', wet);
     this.skyMesh.position.copy(this.camera.position);
     this.stars.position.copy(this.camera.position);
     this.seams.position.set(this.camera.position.x, 0, this.camera.position.z);

@@ -19,6 +19,8 @@ canvas { display: block; }
 button { font: inherit; color: inherit; cursor: pointer; }
 
 .flash { position: absolute; inset: 0; pointer-events: none; opacity: 0; z-index: 5; }
+.underwater { position: absolute; inset: 0; pointer-events: none; opacity: 0; z-index: 4; background: radial-gradient(ellipse at center, rgba(40,130,190,.35), rgba(10,50,90,.7)); transition: opacity .25s; }
+.underwater.on { opacity: 1; }
 
 /* ---------------- HUD ---------------- */
 .hud { position: absolute; inset: 0; z-index: 10; }

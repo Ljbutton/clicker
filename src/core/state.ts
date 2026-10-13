@@ -37,7 +37,12 @@ export function test(cond: Cond | undefined, s: GameState): boolean {
 }
 
 function lookup(name: string, s: GameState): FlagVal | undefined {
-  if (name.startsWith('rel.')) return s.rel[name.slice(4)] ?? 0;
+  if (name.startsWith('rel.')) {
+    let k = name.slice(4);
+    if (k === 'partner') k = String(s.flags.saved ?? 'juno');
+    else if (k === 'captive') k = s.flags.saved === 'bram' ? 'juno' : 'bram';
+    return s.rel[k] ?? 0;
+  }
   if (name.startsWith('seen.')) return !!s.seen[name.slice(5)];
   if (name.startsWith('item.')) return s.items.includes(name.slice(5));
   return s.flags[name];

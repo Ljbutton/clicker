@@ -256,7 +256,7 @@ export class Runner {
           for (let x = Math.min(from[0], to[0]); x <= Math.max(from[0], to[0]); x++) w.set(x, y, z, block);
       return;
     }
-    if ('blocks' in s) { for (const [x, y, z, b] of s.blocks) st.world!.set(x, y, z, b); audio.sfx('place'); return; }
+    if ('blocks' in s) { for (const [x, y, z, b] of s.blocks) st.world!.set(x, y, z, b); return; }
     if ('fray' in s) { st.fray(s.fray.from, s.fray.to, s.fray.dur ?? 3); audio.sfx('fray'); return; }
     if ('sky' in s) { st.setSky(s.sky); return; }
     if ('qte' in s) return this.qte(s.qte);
@@ -381,7 +381,15 @@ export class Runner {
     else picked = visible[i];
     if (s.major) {
       const list = (this.state.majors[this.episode.id] ??= []);
-      const rec = { id: s.major.id, title: this.text(s.major.title), options: visible.map((o) => this.text(o.label ?? o.text)), chosen: i };
+      const options = visible.map((o) => this.text(o.label ?? o.text));
+      let chosen = i;
+      if (i < 0 && timeoutOpt) {
+        // a meaningful timeout: show its label (or match a visible option with the same text)
+        const lab = this.text(timeoutOpt.label ?? timeoutOpt.text);
+        chosen = options.indexOf(lab);
+        if (chosen < 0) { options.push(lab); chosen = options.length - 1; }
+      }
+      const rec = { id: s.major.id, title: this.text(s.major.title), options, chosen };
       const k = list.findIndex((m) => m.id === s.major!.id);
       if (k >= 0) list[k] = rec; else list.push(rec);
     }
