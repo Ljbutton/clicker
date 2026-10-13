@@ -190,6 +190,11 @@ async function autoRun() {
   const eps = (params.get('ep') ?? 'all') === 'all' ? EPISODES.map((e) => e.id) : params.get('ep')!.split(',');
   let st = newState();
   st.flags.look = seed % 3;
+  // ?flags=saved:bram,ysolde:stayed overrides earlier-episode choices for testing
+  for (const kv of (params.get('flags') ?? '').split(',').filter(Boolean)) {
+    const [k, v] = kv.split(':');
+    st.flags[k] = v === 'true' ? true : v === 'false' ? false : isNaN(Number(v)) ? v : Number(v);
+  }
   try {
     for (const id of eps) {
       st = stateFor(id, st);

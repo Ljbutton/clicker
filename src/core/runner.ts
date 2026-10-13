@@ -424,7 +424,7 @@ export class Runner {
 
   async action(steps: Step[]) {
     // snapshot actor transforms so a failed attempt can rewind
-    const snap = [...this.stage.actors.values()].map((a) => ({ id: a.id, pos: a.pos.clone(), yaw: a.yaw, vis: a.visible }));
+    const snap = [...this.stage.actors.values()].map((a) => ({ id: a.id, pos: a.pos.clone(), yaw: a.yaw, vis: a.visible, held: a.model.hand.children[0]?.name ?? null, carried: a.model.handL.children[0]?.name ?? null }));
     const flags = JSON.stringify(this.state.flags);
     let tries = 0;
     while (true) {
@@ -445,6 +445,7 @@ export class Runner {
           a.stop();
           a.pos.copy(sn.pos); a.yaw = sn.yaw; a.targetYaw = sn.yaw; a.visible = sn.vis;
           a.model.play('idle'); a.model.held = null; a.model.anim = null;
+          a.model.setHeld(sn.held); a.model.setHeld(sn.carried, true);
           a.sync();
         }
         await this.hud.fade('in', 0.5);
