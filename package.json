@@ -1,0 +1,27 @@
+{
+  "name": "blockbound",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Blockbound: The Fraying — an original episodic, choice-driven adventure in a blocky voxel world.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "validate": "vite-node scripts/validate.ts",
+    "autoplay": "node scripts/autoplay.mjs"
+  },
+  "dependencies": {
+    "@fontsource/nunito": "5.3.0",
+    "@fontsource/pixelify-sans": "5.3.0",
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.180.0",
+    "playwright-core": "1.56.1",
+    "typescript": "5.9.3",
+    "vite": "7.3.7",
+    "vite-node": "3.2.4"
+  }
+}
