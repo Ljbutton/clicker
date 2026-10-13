@@ -252,7 +252,7 @@ export class Stage {
       const a = this.actors.get(spec.close);
       if (!a) return null;
       const head = a.headWorld();
-      const dist = (spec.dist ?? 2.3) * (a.def.scale ?? 1) * (a.def.kind === 'dog' ? 0.8 : 1);
+      const dist = (spec.dist ?? 2.3) * (a.def.scale ?? 1) * (a.def.kind === 'dog' ? 0.8 : a.def.kind === 'giant' ? 3.2 : 1);
       const side = spec.side ?? 0.35;
       const f = a.forward();
       const right = new THREE.Vector3(f.z, 0, -f.x);

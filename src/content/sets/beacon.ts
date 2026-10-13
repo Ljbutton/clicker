@@ -19,7 +19,7 @@ export const beacon: SetDef = {
   size: [96, 56, 64],
   sky: 'storm',
   cams: {
-    wide: { pos: [30, 35, 40], look: [22, 32, 28] },
+    wide: { pos: [28.5, 34.5, 37.5], look: [22, 32, 28] },
     inscription: { pos: [24, 33, 30], look: [24, 33, 25] },
     pedestal: { pos: [28, 34, 36], look: [24, 32, 32] },
     up: { pos: [27, 31.8, 37], look: [22, 39, 27] },

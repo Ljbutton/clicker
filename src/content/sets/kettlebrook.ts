@@ -44,7 +44,7 @@ export const kettlebrook: SetDef = {
   beam: [48.5, 37, 12.5],
   cams: {
     wide: { pos: [64, 22, 78], look: [47, 12, 46] },
-    plaza: { pos: [48, 16, 64], look: [48, 12, 44] },
+    plaza: { pos: [48, 16, 59], look: [48, 12, 42] },
     workshop: { pos: [38, 14, 54], look: [30, 12, 47] },
     stage: { pos: [48, 15, 44], look: [48, 13, 31] },
     crowd: { pos: [48, 15, 26], look: [48, 12, 40] },
