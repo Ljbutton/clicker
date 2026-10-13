@@ -96,7 +96,7 @@ export const ep3: Episode = {
         },
         { shot: 'wide', dur: 3 },
         { music: 'cave' },
-        { title: 'Iron Hollow', sub: 'The mining city' },
+        { title: 'The Hollow', sub: 'A city at the bottom of the world' },
         { shot: { two: ['wren', 'ostin'] } },
         { say: 'ostin', text: "Wren. Wren, look. Sparkwire. Everywhere. In the walls, along the rails, up the lifts. They run the whole city on it.", mood: 'surprised' },
         { say: 'ostin', text: "I think I'm going to cry. In a happy way. Mostly.", mood: 'happy' },
