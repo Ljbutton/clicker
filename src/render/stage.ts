@@ -31,7 +31,7 @@ export const SKIES: Record<SkyName, SkyPreset> = {
   cave: { top: '#0b0a0f', horizon: '#18141e', fog: '#141018', ambient: [0.34, 0.31, 0.36], shadow: 0.85, near: 14, far: 60, hemiSky: '#8a7a9a', hemiGround: '#2a2020', hemi: 0.8, sun: 0.25, sunColor: '#ffb070', stars: 0, lamp: [1.3, 0.85, 0.5] },
   underwater: { top: '#06304c', horizon: '#13628a', fog: '#0f5478', ambient: [0.45, 0.68, 0.9], shadow: 0.6, near: 8, far: 42, hemiSky: '#7ac0f0', hemiGround: '#1a3a4a', hemi: 1.0, sun: 0.6, sunColor: '#9ad8ff', stars: 0, lamp: [0.9, 0.95, 0.9] },
   void: { top: '#07030f', horizon: '#3b1a5e', bottom: '#12061f', fog: '#2a1446', ambient: [0.62, 0.52, 0.78], shadow: 0.5, near: 40, far: 140, hemiSky: '#c0a0ff', hemiGround: '#2a1a3a', hemi: 1.1, sun: 0.7, sunColor: '#d7b4ff', stars: 1, lamp: [1.1, 0.8, 0.6] },
-  storm: { top: '#26243a', horizon: '#5a4f6e', fog: '#4a4460', ambient: [0.62, 0.58, 0.7], shadow: 0.5, near: 30, far: 95, hemiSky: '#b0a8c8', hemiGround: '#2a2430', hemi: 1.1, sun: 0.6, sunColor: '#c0b0ff', stars: 0, lamp: [1.1, 0.8, 0.5] },
+  storm: { top: '#3e3a5c', horizon: '#6e6284', fog: '#4a4460', ambient: [0.62, 0.58, 0.7], shadow: 0.5, near: 30, far: 95, hemiSky: '#b0a8c8', hemiGround: '#2a2430', hemi: 1.1, sun: 0.6, sunColor: '#c0b0ff', stars: 0, lamp: [1.1, 0.8, 0.5] },
   dawn: { top: '#3d4f94', horizon: '#ffb49a', fog: '#e0a89a', ambient: [0.92, 0.84, 0.86], shadow: 0.45, near: 40, far: 115, hemiSky: '#ffd0c0', hemiGround: '#4a3a3a', hemi: 1.3, sun: 1.2, sunColor: '#ffc0a0', stars: 0.15, lamp: [1, 0.8, 0.5] },
 };
 
@@ -280,8 +280,9 @@ export class Stage {
       const dir = hb.clone().sub(ha); dir.y = 0; dir.normalize();
       const right = new THREE.Vector3(dir.z, 0, -dir.x);
       const side = spec.side ?? -1;
-      const pos = ha.clone().addScaledVector(dir, -1.15).addScaledVector(right, 0.55 * side).add(new THREE.Vector3(0, 0.22, 0));
-      const look = hb.clone().add(new THREE.Vector3(0, -0.15, 0)).addScaledVector(right, 0.15 * side);
+      const back = 1.5 * (a.def.scale ?? 1);
+      const pos = ha.clone().addScaledVector(dir, -back).addScaledVector(right, 0.8 * side).add(new THREE.Vector3(0, 0.3, 0));
+      const look = hb.clone().add(new THREE.Vector3(0, -0.1, 0)).addScaledVector(right, 0.1 * side);
       return this.avoidWalls(look, pos);
     }
     if ('orbit' in spec || 'follow' in spec) {

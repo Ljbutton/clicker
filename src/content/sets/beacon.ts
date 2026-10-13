@@ -22,7 +22,7 @@ export const beacon: SetDef = {
     wide: { pos: [30, 35, 40], look: [22, 32, 28] },
     inscription: { pos: [24, 33, 30], look: [24, 33, 25] },
     pedestal: { pos: [28, 34, 36], look: [24, 32, 32] },
-    up: { pos: [24, 32, 36], look: [24, 50, 30] },
+    up: { pos: [27, 31.8, 37], look: [22, 39, 27] },
     door: { pos: [26, 33, 36], look: [34, 32, 32] },
     bridge: { pos: [50, 34, 42], look: [50, 30, 32] },
     bridgeLow: { pos: [44, 27, 38], look: [52, 31, 32] },
